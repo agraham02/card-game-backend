@@ -59,8 +59,6 @@ export default class Game {
             player.tricksWon = 0;
             player.socket.emit("deal_hand", player.hand);
         });
-
-        this.phase = "bidding";
     }
 
     addPlayer(player: Player): void {

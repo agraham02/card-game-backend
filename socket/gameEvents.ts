@@ -39,12 +39,21 @@ export function handleGameEvents(io: Server, socket: Socket) {
             "player_list",
             game.players.map((p) => ({ id: p.id, name: p.name }))
         );
+    });
 
-        // Start the game if 4 players have joined
-        // TODO: change this to a start button trigger
-        if (game.players.length === 4) {
-            game.dealCards();
+    socket.on("start_game", ({ roomId }) => {
+        const game = games[roomId];
+        if (game.players.length < 4) {
+            socket.emit(
+                "invalid_player_count",
+                "Game requires 4 players to start"
+            );
+            return;
         }
+
+        game.dealCards();
+        game.phase = "bidding";
+        io.to(roomId).emit("start_bidding");
     });
 
     // Other game-related socket events, e.g., play_card, submit_bid, etc.
@@ -112,6 +121,13 @@ export function handleGameEvents(io: Server, socket: Socket) {
                     `Player ${game.players[winnerIndex].name}-${game.players[winnerIndex].id} won the trick!`
                 );
                 game.players[winnerIndex].tricksWon++;
+                io.to(roomId).emit(
+                    "trick_won",
+                    game.players.map((p) => ({
+                        playerId: p.id,
+                        tricksWon: p.tricksWon ?? 0,
+                    }))
+                );
                 game.currentTurn = winnerIndex;
                 game.currentTrick = [];
                 game.leadingSuit = null;
@@ -124,7 +140,12 @@ export function handleGameEvents(io: Server, socket: Socket) {
                     calculateScores(game);
                     // Send scores to players
                     io.to(roomId).emit("round_over", {
-                        players: game.players,
+                        players: game.players.map((player) => ({
+                            id: player.id,
+                            name: player.name,
+                            bid: player.bid,
+                            tricksWon: player.tricksWon,
+                        })),
                     });
                     // Reset for the next round or end the game
                 } else {
