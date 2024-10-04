@@ -169,10 +169,10 @@ export function handleGameEvents(io: Server, socket: Socket) {
                 game.players[winnerIndex].tricksWon++;
                 io.to(roomId).emit(
                     "trick_won",
-                    game.players.map((p) => ({
-                        playerId: p.id,
-                        tricksWon: p.tricksWon ?? 0,
-                    }))
+                    {
+                        winnerId: game.players[winnerIndex].id,
+                        tricksWon: game.players[winnerIndex].tricksWon,
+                    }
                 );
                 game.currentTurn = winnerIndex;
                 game.currentTrick = [];
@@ -191,6 +191,7 @@ export function handleGameEvents(io: Server, socket: Socket) {
                             name: player.name,
                             bid: player.bid,
                             tricksWon: player.tricksWon,
+                            totalScore: player.totalScore,
                         })),
                     });
                     // Reset for the next round or end the game
