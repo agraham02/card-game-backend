@@ -6,6 +6,7 @@ import { shuffleDeck } from "../utils/shuffle";
 export default class Game {
     players: Player[] = [];
     deck: Card[] = [];
+    partyLeaderId: string | null = null;
     currentTurn: number = 0;
     phase: "waiting" | "bidding" | "playing" | "scoring" = "waiting";
     bidsReceived: number = 0;

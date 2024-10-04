@@ -34,20 +34,66 @@ export function handleGameEvents(io: Server, socket: Socket) {
         };
         game.addPlayer(player);
 
-        // Notify players in the room
-        io.to(roomId).emit(
-            "player_list",
-            game.players.map((p) => ({ id: p.id, name: p.name }))
-        );
+        // Assign the first player as the party leader
+        if (!game.partyLeaderId) {
+            game.partyLeaderId = player.id;
+        }
+
+        // Notify all players about the updated player list and party leader
+        io.to(roomId).emit("player_list", {
+            players: game.players.map((p) => ({
+                id: p.id,
+                name: p.name,
+                bid: p.bid,
+                tricksWon: p.tricksWon,
+            })),
+            partyLeaderId: game.partyLeaderId,
+        });
+    });
+
+    // backend/socket/gameEvents.ts
+
+    socket.on("transfer_leadership", ({ roomId, newLeaderId }) => {
+        const game = games[roomId];
+        if (!game) return;
+
+        // Check if the requester is the current party leader
+        if (socket.id !== game.partyLeaderId) {
+            socket.emit(
+                "error",
+                "Only the party leader can transfer leadership."
+            );
+            return;
+        }
+
+        // Check if the new leader exists in the game
+        const newLeader = game.players.find((p) => p.id === newLeaderId);
+        if (!newLeader) {
+            socket.emit("error", "Selected player is not in the game.");
+            return;
+        }
+
+        // Transfer leadership
+        game.partyLeaderId = newLeaderId;
+
+        // Notify all players about the updated party leader
+        io.to(roomId).emit("party_leader_changed", {
+            partyLeaderId: game.partyLeaderId,
+        });
     });
 
     socket.on("start_game", ({ roomId }) => {
         const game = games[roomId];
+        if (!game) return;
+
+        // Check if the requester is the party leader
+        if (socket.id !== game.partyLeaderId) {
+            socket.emit("error", "Only the party leader can start the game.");
+            return;
+        }
+
         if (game.players.length < 4) {
-            socket.emit(
-                "invalid_player_count",
-                "Game requires 4 players to start"
-            );
+            socket.emit("error", "Game requires 4 players to start");
             return;
         }
 
