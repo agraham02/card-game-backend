@@ -19,10 +19,29 @@ export function setupSocketHandlers(io: Server) {
             for (const roomId in games) {
                 const game = games[roomId];
                 game.removePlayer(socket.id);
-                io.to(roomId).emit(
-                    "player_list",
-                    game.players.map((p) => ({ id: p.id, name: p.name }))
-                );
+
+                // If the disconnected player was the party leader
+                if (game.partyLeaderId === socket.id) {
+                    if (game.players.length > 0) {
+                        // Assign the next player as the new party leader
+                        game.partyLeaderId = game.players[0].id;
+                    } else {
+                        // No players left, remove the game
+                        delete games[roomId];
+                        continue;
+                    }
+                }
+
+                io.to(roomId).emit("player_list", {
+                    players: game.players.map((p) => ({
+                        id: p.id,
+                        name: p.name,
+                        bid: p.bid,
+                        tricksWon: p.tricksWon,
+                    })),
+                    partyLeaderId: game.partyLeaderId,
+                });
+                
                 if (game.players.length === 0) {
                     delete games[roomId]; // Clean up empty games
                 }
