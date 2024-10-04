@@ -55,10 +55,45 @@ export default class Game {
         }
 
         this.players.forEach((player, index) => {
-            player.hand = hands[index];
+            player.hand = this.sortHand(hands[index]);
             player.bid = 0;
             player.tricksWon = 0;
             player.socket.emit("deal_hand", player.hand);
+        });
+    }
+
+    sortHand(hand: Card[]): Card[] {
+        const suitOrder: Record<Suit, number> = {
+            Spades: 4,
+            Hearts: 3,
+            Clubs: 2,
+            Diamonds: 1,
+        };
+
+        const valueOrder: Record<Value, number> = {
+            "2": 2,
+            "3": 3,
+            "4": 4,
+            "5": 5,
+            "6": 6,
+            "7": 7,
+            "8": 8,
+            "9": 9,
+            "10": 10,
+            J: 11,
+            Q: 12,
+            K: 13,
+            A: 14,
+        };
+
+        return hand.sort((a, b) => {
+            if (suitOrder[a.suit] !== suitOrder[b.suit]) {
+                // Sort by suit first
+                return suitOrder[a.suit] - suitOrder[b.suit];
+            } else {
+                // Sort by value if suits are the same
+                return valueOrder[a.value] - valueOrder[b.value];
+            }
         });
     }
 
