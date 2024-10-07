@@ -5,6 +5,7 @@ import {
     validatePlay,
     evaluateTrick,
     calculateScores,
+    calculateTeamScores,
 } from "../utils/validation";
 import { Player } from "../game/Player";
 
@@ -82,6 +83,64 @@ export function handleGameEvents(io: Server, socket: Socket) {
         });
     });
 
+    // backend/socket/gameEvents.ts
+
+    socket.on("set_player_order", ({ roomId, playerOrder }) => {
+        console.log(playerOrder);
+        const game = games[roomId];
+        if (!game) return;
+
+        // Verify the requester is the party leader
+        if (socket.id !== game.partyLeaderId) {
+            socket.emit(
+                "error",
+                "Only the party leader can set the player order."
+            );
+            return;
+        }
+
+        // Validate the player order
+        const isValidOrder =
+            playerOrder.length === game.players.length &&
+            playerOrder.every((id: string) =>
+                game.players.some((p) => p.id === id)
+            );
+
+        if (!isValidOrder) {
+            socket.emit("error", "Invalid player order.");
+            return;
+        }
+
+        game.playerOrder = playerOrder;
+
+        // Assign teams based on player positions
+        game.players.forEach((player) => {
+            const position = game.playerOrder.indexOf(player.id);
+            if (position === -1) return;
+            player.teamId = position % 2 === 0 ? 1 : 2; // Team 1: positions 0,2; Team 2: positions 1,3
+        });
+
+        // Update teams structure
+        game.teams = {
+            1: { players: [], score: 0 },
+            2: { players: [], score: 0 },
+        };
+        game.players.forEach((player) => {
+            const team = game.teams[player.teamId!];
+            team.players.push(player);
+        });
+
+        // Notify all players about the updated order and teams
+        console.log(game.playerOrder);
+        io.to(roomId).emit("player_order_updated", {
+            newPlayerOrder: game.playerOrder,
+            teamAssignments: game.players.map((p) => ({
+                playerId: p.id,
+                teamId: p.teamId,
+            })),
+        });
+    });
+
     socket.on("start_game", ({ roomId }) => {
         const game = games[roomId];
         if (!game) return;
@@ -92,7 +151,7 @@ export function handleGameEvents(io: Server, socket: Socket) {
             return;
         }
 
-        if (game.players.length < 4) {
+        if (game.players.length < 4 || game.playerOrder.length < 4) {
             socket.emit("error", "Game requires 4 players to start");
             return;
         }
@@ -121,9 +180,9 @@ export function handleGameEvents(io: Server, socket: Socket) {
 
             if (game.bidsReceived === 4) {
                 game.phase = "playing";
-                game.currentTurn = 0; // Reset to the first player
+                game.currentTurnIndex = 0; // Reset to the first player
                 io.to(roomId).emit("start_play", {
-                    currentPlayerId: game.players[game.currentTurn].id,
+                    currentPlayerId: game.playerOrder[game.currentTurnIndex],
                 });
             }
         }
@@ -131,12 +190,12 @@ export function handleGameEvents(io: Server, socket: Socket) {
 
     socket.on("play_card", ({ roomId, card }) => {
         const game = games[roomId];
-        const playerIndex = game.players.findIndex((p) => p.id === socket.id);
+        // const playerIndex = game.players.findIndex((p) => p.id === socket.id);
 
         if (game.phase !== "playing") return;
 
-        if (playerIndex === game.currentTurn) {
-            const player = game.players[playerIndex];
+        if (socket.id === game.getCurrentPlayerId()) {
+            const player = game.players[game.currentTurnIndex];
 
             // Validate the move
             const isValid = validatePlay(game, player, card);
@@ -167,14 +226,11 @@ export function handleGameEvents(io: Server, socket: Socket) {
                     `Player ${game.players[winnerIndex].name}-${game.players[winnerIndex].id} won the trick!`
                 );
                 game.players[winnerIndex].tricksWon++;
-                io.to(roomId).emit(
-                    "trick_won",
-                    {
-                        winnerId: game.players[winnerIndex].id,
-                        tricksWon: game.players[winnerIndex].tricksWon,
-                    }
-                );
-                game.currentTurn = winnerIndex;
+                io.to(roomId).emit("trick_won", {
+                    winnerId: game.players[winnerIndex].id,
+                    tricksWon: game.players[winnerIndex].tricksWon,
+                });
+                game.currentTurnIndex = winnerIndex;
                 game.currentTrick = [];
                 game.leadingSuit = null;
                 game.tricksPlayed++;
@@ -183,32 +239,39 @@ export function handleGameEvents(io: Server, socket: Socket) {
                 if (game.tricksPlayed === 13) {
                     game.phase = "scoring";
                     // Calculate scores
-                    calculateScores(game);
+                    // calculateScores(game);
+                    calculateTeamScores(game);
+
                     // Send scores to players
                     io.to(roomId).emit("round_over", {
-                        players: game.players.map((player) => ({
-                            id: player.id,
-                            name: player.name,
-                            bid: player.bid,
-                            tricksWon: player.tricksWon,
-                            totalScore: player.totalScore,
-                        })),
+                        teams: Object.entries(game.teams).map(
+                            ([teamId, team]) => ({
+                                teamId: parseInt(teamId),
+                                score: team.score,
+                                players: team.players.map((p) => ({
+                                    id: p.id,
+                                    name: p.name,
+                                })),
+                            })
+                        ),
                     });
                     // Reset for the next round or end the game
                 } else {
                     // Start the next trick
                     io.to(roomId).emit("next_trick", {
-                        currentPlayerId: game.players[game.currentTurn].id,
+                        currentPlayerId: game.players[game.currentTurnIndex].id,
                     });
                 }
             } else {
                 // Proceed to the next player's turn
-                game.currentTurn = (game.currentTurn + 1) % 4;
+                game.advanceTurn();
                 io.to(roomId).emit("next_turn", {
-                    currentPlayerId: game.players[game.currentTurn].id,
+                    currentPlayerId: game.getCurrentPlayerId(),
                 });
             }
         } else {
+            console.log(socket.id);
+            console.log(game.getCurrentPlayerId());
             socket.emit("invalid_move", "It is not your turn.");
         }
     });

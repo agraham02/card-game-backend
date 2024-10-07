@@ -9,4 +9,5 @@ export interface Player {
     tricksWon: number;
     socket: any; // Reference to the player's socket connection
     totalScore?: number;
+    teamId?: number;
 }

@@ -7,7 +7,9 @@ export default class Game {
     players: Player[] = [];
     deck: Card[] = [];
     partyLeaderId: string | null = null;
-    currentTurn: number = 0;
+    playerOrder: string[] = [];
+    teams: { [teamId: number]: { players: Player[]; score: number } } = {};
+    currentTurnIndex: number = 0;
     phase: "waiting" | "bidding" | "playing" | "scoring" = "waiting";
     bidsReceived: number = 0;
     tricksPlayed: number = 0;
@@ -105,5 +107,14 @@ export default class Game {
 
     removePlayer(playerId: string): void {
         this.players = this.players.filter((player) => player.id !== playerId);
+    }
+
+    getCurrentPlayerId(): string {
+        return this.playerOrder[this.currentTurnIndex];
+    }
+
+    advanceTurn() {
+        this.currentTurnIndex =
+            (this.currentTurnIndex + 1) % this.players.length;
     }
 }
