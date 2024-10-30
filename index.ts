@@ -3,12 +3,16 @@
 import express from "express";
 import http from "http";
 import { Server } from "socket.io";
-import { setupSocketHandlers } from "./socket/socketHandlers";
+
 import morgan from "morgan";
+import { setupRoomNamespace } from "./socket/namespaces/roomNamespace";
+import { setupGameNamespace } from "./socket/namespaces/gameNamespace";
 
 const app = express();
-const httpServer = http.createServer(app);
-const ioServer = new Server(httpServer, {
+app.use(morgan("dev"));
+
+const server = http.createServer(app);
+const io = new Server(server, {
     cors: {
         origin: "*",
         methods: ["GET", "POST"],
@@ -16,19 +20,14 @@ const ioServer = new Server(httpServer, {
     },
 });
 
-app.use(morgan("dev"));
-
-// ioServer.on("connection", (socket) => {
-setupSocketHandlers(ioServer);
-// });
+setupRoomNamespace(io);
+setupGameNamespace(io);
 
 app.get("/", (req, res) => {
     res.send("Server is running");
-})
-
-   
-const PORT = 5000;
-httpServer.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
 });
 
+const PORT = 5000;
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
