@@ -96,3 +96,25 @@ export function calculateScores(game: Game): void {
         player["totalScore"] = (player["totalScore"] ?? 0) + score;
     });
 }
+
+export function calculateTeamScores(game: Game): void {
+    Object.values(game.teams).forEach((team) => {
+        const teamBid = team.players.reduce(
+            (sum, player) => sum + player.bid,
+            0
+        );
+        const teamTricksWon = team.players.reduce(
+            (sum, player) => sum + player.tricksWon,
+            0
+        );
+
+        let teamScore = 0;
+        if (teamTricksWon >= teamBid) {
+            teamScore += teamBid * 10;
+            teamScore += teamTricksWon - teamBid; // Overtricks
+        } else {
+            teamScore -= teamBid * 10;
+        }
+        team.score += teamScore;
+    });
+}
