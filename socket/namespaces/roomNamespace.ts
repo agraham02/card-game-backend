@@ -51,7 +51,7 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
             ({ roomId, playerId, gameType, gameRules }) => {
                 const room = roomManager.getRoom(roomId);
 
-                if (room && room.isPartyLeader(playerId)) {
+                if (room?.isPartyLeader(playerId)) {
                     // room.setGameType(gameType);
                     // room.setGameRules(gameRules);
                     roomNamespace
