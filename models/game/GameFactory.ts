@@ -1,5 +1,5 @@
 import { Game } from "./Game";
-import { SpadesGame } from "./Spades";
+import { SpadesGame } from "./SpadesGame";
 import { Dominoes } from "./Dominoes";
 import { Room } from "../room/Room";
 
