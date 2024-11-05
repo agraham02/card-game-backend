@@ -1,15 +1,15 @@
-// tests/SpadesGameIntegration.test.ts
+// tests/RoomToGameIntegration.test.ts
 
 import { Server } from "socket.io";
 import Client, { Socket as ClientSocket } from "socket.io-client";
-import { createServer, Server as HttpServer } from "http";
-import { setupRoomNamespace } from "../socket/namespaces/roomNamespace";
-import { RoomManager } from "../models/room/RoomManager";
+import { createServer } from "http";
+import { setupRoomNamespace } from "../src/socket/namespaces/roomNamespace";
+import { RoomManager } from "../src/models/room/RoomManager";
 import { AddressInfo } from "net";
 
-describe("SpadesGame Integration Tests", () => {
+describe("Room to Game Integration Tests", () => {
     let ioServer: Server;
-    let httpServer: HttpServer;
+    let httpServer;
     let httpServerAddr: AddressInfo | string | null;
     let roomManager: RoomManager;
     let clientSockets: ClientSocket[] = [];
@@ -56,7 +56,7 @@ describe("SpadesGame Integration Tests", () => {
         done();
     });
 
-    test("should start the game and distribute initial hands to players", (done) => {
+    test("should initialize the game when the party leader starts it", (done) => {
         const roomName = "testRoom";
         const playerNames = ["Alice", "Bob", "Charlie", "Diana"];
         const port =
@@ -96,7 +96,7 @@ describe("SpadesGame Integration Tests", () => {
             clientSocket.on("ROOM_STATE_UPDATED", () => {
                 connectedClients++;
                 if (connectedClients === 4) {
-                    // All players have joined; start the game
+                    // All players have joined; party leader starts the game
                     clientSockets[0].emit("START_GAME", {
                         roomId: roomName,
                         playerId: clientSockets[0].id,
@@ -105,9 +105,11 @@ describe("SpadesGame Integration Tests", () => {
             });
 
             clientSocket.on("GAME_STARTED", ({ gameState }) => {
-                // Verify that each client receives their hand
-                expect(gameState.hand.length).toBe(13);
+                // Verify that each client receives the game state
+                expect(gameState).toBeDefined();
                 expect(gameState.currentTurn).toBeDefined();
+                expect(gameState.scores).toEqual({ team1: 0, team2: 0 });
+                expect(gameState.hand.length).toBe(13); // Each player should have 13 cards
 
                 gameStartedClients++;
                 if (gameStartedClients === 4) {

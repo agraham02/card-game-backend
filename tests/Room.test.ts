@@ -133,6 +133,8 @@ describe("Room Class - startGame", () => {
         room.startGame(player1.id);
 
         expect(room.roomStatus).toBe("in_progress");
+        expect(room.gameInstance).toBeDefined();
+        // expect(room.gameInstance instanceof SpadesGame).toBe(true);
     });
 
     test("non-party leader attempts to start the game", () => {
