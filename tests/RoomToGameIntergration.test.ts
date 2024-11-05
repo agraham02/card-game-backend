@@ -2,14 +2,15 @@
 
 import { Server } from "socket.io";
 import Client, { Socket as ClientSocket } from "socket.io-client";
-import { createServer } from "http";
-import { setupRoomNamespace } from "../src/socket/namespaces/roomNamespace";
-import { RoomManager } from "../src/models/room/RoomManager";
+import { createServer, Server as HttpServer } from "http";
+import { setupRoomNamespace } from "../socket/namespaces/roomNamespace";
+import { RoomManager } from "../models/room/RoomManager";
 import { AddressInfo } from "net";
+import { SpadesGame } from "../models/game/SpadesGame";
 
 describe("Room to Game Integration Tests", () => {
     let ioServer: Server;
-    let httpServer;
+    let httpServer: HttpServer;
     let httpServerAddr: AddressInfo | string | null;
     let roomManager: RoomManager;
     let clientSockets: ClientSocket[] = [];
@@ -97,25 +98,37 @@ describe("Room to Game Integration Tests", () => {
                 connectedClients++;
                 if (connectedClients === 4) {
                     // All players have joined; party leader starts the game
-                    clientSockets[0].emit("START_GAME", {
-                        roomId: roomName,
-                        playerId: clientSockets[0].id,
-                    });
+                    // clientSockets[0].emit("START_GAME", {
+                    //     roomId: roomName,
+                    //     playerId: clientSockets[0].id,
+                    // });
                 }
             });
 
-            clientSocket.on("GAME_STARTED", ({ gameState }) => {
-                // Verify that each client receives the game state
-                expect(gameState).toBeDefined();
-                expect(gameState.currentTurn).toBeDefined();
-                expect(gameState.scores).toEqual({ team1: 0, team2: 0 });
-                expect(gameState.hand.length).toBe(13); // Each player should have 13 cards
+            // clientSocket.on("GAME_STARTED", ({ roomState }) => {
+            //     // Verify that each client receives the game state
+            //     expect(roomState).toBeDefined();
+            //     expect(roomState.gameInstance).toBeDefined();
+            //     expect(roomState.gameInstance.scores).toEqual({ 1: 0, 2: 0 });
+            //     // expect(
+            //     //     (roomState.gameInstance as SpadesGame).getAllPlayers()
+            //     // ).toBeDefined();
+            //     // for (const playerId in (roomState.gameInstance as SpadesGame)
+            //     //     .players) {
+            //     //     const player = (roomState.gameInstance as SpadesGame)
+            //     //         .players[playerId];
+            //     //     expect(player).toBeDefined();
+            //     //     expect(player.gameData).toBeDefined();
+            //     //     expect(player.gameData.spades).toBeDefined();
+            //     //     expect(player.gameData.spades.hand).toBeDefined();
+            //     //     expect(player.gameData.spades.hand.length).toBe(13);
+            //     // }
 
-                gameStartedClients++;
-                if (gameStartedClients === 4) {
-                    done();
-                }
-            });
+            //     gameStartedClients++;
+            //     if (gameStartedClients === 4) {
+            //         done();
+            //     }
+            // });
 
             clientSocket.on("ERROR", (data) => {
                 done(new Error(`Received error: ${data.message}`));

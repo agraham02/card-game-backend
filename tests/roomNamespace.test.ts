@@ -331,11 +331,14 @@ describe("Room Namespace Socket Events", () => {
                             playerId: clientSocket.id,
                         });
 
-                        // Since game logic isn't fully implemented, we'll check if room status changes
-                        const room = roomManager.getRoom(roomId);
-                        if (room) {
-                            expect(room.roomStatus).toBe("in_progress");
-                        }
+                        clientSocket.on(
+                            "GAME_STARTED",
+                            ({ roomState }) => {
+                                expect(roomState).toBeDefined();
+                                expect(roomState.status).toBe("in_progress");
+                                done();
+                            }
+                        );
 
                         // Clean up
                         clientSockets.forEach((cs) => cs.disconnect());

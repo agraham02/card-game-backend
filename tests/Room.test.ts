@@ -130,9 +130,9 @@ describe("Room Class - startGame", () => {
         room.addPlayer(player3);
         room.addPlayer(player4);
 
-        room.startGame(player1.id);
+        room.startGame(player1.id, "spades");
 
-        expect(room.roomStatus).toBe("in_progress");
+        expect(room.status).toBe("in_progress");
         expect(room.gameInstance).toBeDefined();
         // expect(room.gameInstance instanceof SpadesGame).toBe(true);
     });
@@ -143,7 +143,7 @@ describe("Room Class - startGame", () => {
         room.addPlayer(player3);
         room.addPlayer(player4);
 
-        expect(() => room.startGame(player2.id)).toThrow(
+        expect(() => room.startGame(player2.id, "spades")).toThrow(
             "Only the party leader can start the game."
         );
     });
@@ -152,7 +152,7 @@ describe("Room Class - startGame", () => {
         room.addPlayer(player1);
         room.addPlayer(player2);
 
-        expect(() => room.startGame(player1.id)).toThrow(
+        expect(() => room.startGame(player1.id, "spades")).toThrow(
             "Not enough players to start the game."
         );
     });
@@ -201,4 +201,3 @@ describe("Room Class - setTurnOrder", () => {
         );
     });
 });
-

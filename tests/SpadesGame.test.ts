@@ -1,8 +1,9 @@
 // tests/SpadesGame.test.ts
 
-import { SpadesGame } from "../src/game/SpadesGame";
-import { Room } from "../src/room/Room";
-import { Player } from "../src/player/Player";
+import { SpadesGame } from "../models/game/SpadesGame";
+import { Room } from "../models/room/Room";
+import { Player } from "../models/player/Player";
+import { SpadesGameData } from "../models/game/SpadesGameData";
 
 describe("SpadesGame - startGame", () => {
     let room: Room;
@@ -31,16 +32,16 @@ describe("SpadesGame - startGame", () => {
         expect(spadesGame.teams[2]).toContain(players[3]);
 
         // Check that the deck has been created and shuffled
-        expect(spadesGame.deck.length).toBe(0); // Deck should be empty after dealing
+        expect(spadesGame.deck.getSize()).toBe(0); // Deck should be empty after dealing
 
         // Check that hands have been dealt
         players.forEach((player) => {
-            expect(spadesGame.hands[player.id].length).toBe(13);
+            expect((player.gameData["spades"] as SpadesGameData).hand.length).toBe(13);
         });
 
         // Check that the game state is initialized
         const gameState = spadesGame.getGameState();
-        expect(gameState.currentTurn).toBeDefined();
+        expect(gameState.currentTurnIndex).toBeDefined();
         expect(gameState.scores).toEqual({ team1: 0, team2: 0 });
     });
 
@@ -73,27 +74,31 @@ describe("SpadesGame - handlePlayerAction", () => {
     });
 
     test("should handle a valid card play", () => {
-        const currentPlayerId = spadesGame.gameState.currentTurn;
-        const playerHand = spadesGame.hands[currentPlayerId];
+        const currentTurnIndex = spadesGame.gameState.currentTurnIndex;
+        const currentPlayerId = spadesGame.turnOrder[currentTurnIndex];
+        const playerHand =
+            spadesGame.getGameStateForPlayer(currentPlayerId).hand;
         const cardToPlay = playerHand[0];
 
         const action = { type: "PLAY_CARD", card: cardToPlay };
-
         spadesGame.handlePlayerAction(currentPlayerId, action);
 
         // Verify that the card is removed from the player's hand
-        expect(spadesGame.hands[currentPlayerId]).not.toContainEqual(
-            cardToPlay
-        );
+        expect(
+            spadesGame.getGameStateForPlayer(currentPlayerId).hand
+        ).not.toContainEqual(cardToPlay);
 
         // Verify that the game state is updated (e.g., current turn changes)
-        expect(spadesGame.gameState.currentTurn).not.toBe(currentPlayerId);
+        expect(spadesGame.gameState.currentTurnIndex).not.toBe(
+            currentTurnIndex
+        );
     });
 
     test("should not allow a player to play when it's not their turn", () => {
-        const currentPlayerId = spadesGame.gameState.currentTurn;
+        const currentTurnIndex = spadesGame.gameState.currentTurnIndex;
+        const currentPlayerId = spadesGame.turnOrder[currentTurnIndex];
         const otherPlayerId = players.find((p) => p.id !== currentPlayerId)!.id;
-        const playerHand = spadesGame.hands[otherPlayerId];
+        const playerHand = spadesGame.getGameStateForPlayer(otherPlayerId).hand;
         const cardToPlay = playerHand[0];
 
         const action = { type: "PLAY_CARD", card: cardToPlay };
@@ -104,7 +109,8 @@ describe("SpadesGame - handlePlayerAction", () => {
     });
 
     test("should not allow a player to play a card they do not have", () => {
-        const currentPlayerId = spadesGame.gameState.currentTurn;
+        const currentTurnIndex = spadesGame.gameState.currentTurnIndex;
+        const currentPlayerId = spadesGame.turnOrder[currentTurnIndex];
         const invalidCard = { suit: "hearts", rank: 2 }; // Assuming the player doesn't have this card
 
         const action = { type: "PLAY_CARD", card: invalidCard };
@@ -137,7 +143,7 @@ describe("SpadesGame - getGameState", () => {
         const gameState = spadesGame.getGameState();
 
         expect(gameState).toBeDefined();
-        expect(gameState.currentTurn).toBeDefined();
+        expect(gameState.currentTurnIndex).toBeDefined();
         expect(gameState.scores).toEqual({ team1: 0, team2: 0 });
         // Add more assertions as needed
     });
@@ -171,3 +177,132 @@ describe("SpadesGame - endGame", () => {
     });
 });
 
+describe("SpadesGame - simulate a full game", () => {
+    let room: Room;
+    let players: Player[];
+    let spadesGame: SpadesGame;
+
+    beforeEach(() => {
+        room = new Room("room1");
+        players = [
+            new Player("player1", "Alice", null),
+            new Player("player2", "Bob", null),
+            new Player("player3", "Charlie", null),
+            new Player("player4", "Diana", null),
+        ];
+        players.forEach((player) => room.addPlayer(player));
+        spadesGame = new SpadesGame(room);
+        spadesGame.startGame();
+    });
+
+    test("should simulate a full game from bidding to game end", () => {
+        // Simulate bidding phase
+        const bids = {
+            player1: 3,
+            player2: 4,
+            player3: 2,
+            player4: 4,
+        };
+
+        // Players make their bids
+        for (let i = 0; i < players.length; i++) {
+            const playerId = spadesGame.gameState.currentTurn;
+            const bid = bids[playerId];
+            spadesGame.makeBid(playerId, bid);
+        }
+
+        // Ensure that all bids are recorded
+        expect(Object.values(spadesGame.gameState.bids)).toEqual([3, 4, 2, 4]);
+
+        // Simulate trick-taking phase
+        for (let i = 0; i < 13; i++) {
+            // 13 tricks in a round
+            const trickCards: { [playerId: string]: Card } = {};
+
+            for (let j = 0; j < players.length; j++) {
+                const currentPlayerId = spadesGame.gameState.currentTurn;
+                const playerHand = (
+                    players.find((p) => p.id === currentPlayerId)!.gameData[
+                        "spades"
+                    ] as SpadesGameData
+                ).hand;
+
+                // For simplicity, play the first card in hand
+                const cardToPlay = playerHand[0];
+
+                // Record the card played for the trick
+                trickCards[currentPlayerId] = cardToPlay;
+
+                // Player plays the card
+                spadesGame.handlePlayerAction(currentPlayerId, {
+                    type: "PLAY_CARD",
+                    card: cardToPlay,
+                });
+            }
+
+            // After each trick, check that the trick winner is determined
+            expect(spadesGame.gameState.currentTrick).toEqual([]);
+
+            // You can add assertions to check the trick winner if you implement that logic
+        }
+
+        // After all tricks are played, calculate scores
+        spadesGame.calculateScores();
+
+        // Check that scores are updated (example, actual scoring logic may vary)
+        expect(spadesGame.gameState.scores).toBeDefined();
+
+        // Check if the game ends (you might need to loop through rounds until a team reaches the winning score)
+        const winningScore = 500;
+        let gameOver = false;
+
+        while (!gameOver) {
+            // Reset for next round
+            spadesGame.startNewRound();
+
+            // Simulate bidding
+            for (let i = 0; i < players.length; i++) {
+                const playerId = spadesGame.gameState.currentTurn;
+                const bid = bids[playerId]; // Use the same bids for simplicity
+                spadesGame.makeBid(playerId, bid);
+            }
+
+            // Simulate trick-taking
+            for (let i = 0; i < 13; i++) {
+                for (let j = 0; j < players.length; j++) {
+                    const currentPlayerId = spadesGame.gameState.currentTurn;
+                    const playerHand = (
+                        players.find((p) => p.id === currentPlayerId)!.gameData[
+                            "spades"
+                        ] as SpadesGameData
+                    ).hand;
+
+                    if (playerHand.length === 0) {
+                        continue; // Skip if the player has no cards left
+                    }
+
+                    const cardToPlay = playerHand[0];
+                    spadesGame.handlePlayerAction(currentPlayerId, {
+                        type: "PLAY_CARD",
+                        card: cardToPlay,
+                    });
+                }
+            }
+
+            // Calculate scores after the round
+            spadesGame.calculateScores();
+
+            // Check if any team has reached the winning score
+            const teamScores = Object.values(spadesGame.gameState.scores);
+            if (teamScores.some((score) => score >= winningScore)) {
+                gameOver = true;
+            }
+        }
+
+        // End the game
+        spadesGame.endGame();
+
+        // Verify that the game has ended
+        expect(spadesGame.gameState).toBeNull();
+    });
+});
