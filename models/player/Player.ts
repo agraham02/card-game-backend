@@ -9,9 +9,9 @@ export interface PublicPlayer {
 export class Player {
     id: string;
     name: string;
-    socket: Socket; // Reference to the player's socket connection
+    socket: Socket | null; // Reference to the player's socket connection
 
-    constructor(id: string, name: string, socket: Socket) {
+    constructor(id: string, name: string, socket: Socket | null) {
         this.id = id;
         this.name = name;
         this.socket = socket;
