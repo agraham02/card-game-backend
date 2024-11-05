@@ -1,6 +1,21 @@
+import { Player } from "../player/Player";
 import { BaseGame } from "./Game";
 
 export class Spades extends BaseGame {
+    pause(): void {
+        throw new Error("Method not implemented.");
+    }
+    resume(): void {
+        throw new Error("Method not implemented.");
+    }
+    endGame(): void {
+        throw new Error("Method not implemented.");
+    }
+
+    constructor(roomId: string, players: Player[]) {
+        super(roomId, players);
+        // Additional initialization for Spades
+    }
     start() {
         // Initialize the game (shuffle, deal cards, set initial state)
         console.log("Starting Spades game in room:", this.roomId);
@@ -14,5 +29,14 @@ export class Spades extends BaseGame {
     getGameState() {
         // Return the current game state
         return { game: "Spades", players: this.players };
+    }
+
+    // Spades-specific methods
+    private assignTeams(): void {
+        // Assign players to teams
+    }
+
+    private dealCards(): void {
+        // Deal cards to players
     }
 }
