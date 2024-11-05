@@ -2,9 +2,7 @@ import { Server, Socket } from "socket.io";
 import { RoomManager } from "../../models/room/RoomManager";
 import { Player } from "../../models/player/Player";
 
-const roomManager = new RoomManager();
-
-export const setupRoomNamespace = (io: Server) => {
+export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
     const roomNamespace = io.of("/room");
 
     roomNamespace.on("connection", (socket: Socket) => {
