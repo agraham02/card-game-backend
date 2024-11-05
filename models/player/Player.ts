@@ -9,7 +9,8 @@ export interface PublicPlayer {
 export class Player {
     id: string;
     name: string;
-    socket: Socket | null; // Reference to the player's socket connection
+    socket: Socket | null;
+    gameData: { [gameName: string]: any } = {};
 
     constructor(id: string, name: string, socket: Socket | null) {
         this.id = id;

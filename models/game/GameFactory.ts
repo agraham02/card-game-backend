@@ -1,14 +1,15 @@
 import { Game } from "./Game";
-import { Spades } from "./Spades";
+import { SpadesGame } from "./Spades";
 import { Dominoes } from "./Dominoes";
+import { Room } from "../room/Room";
 
 export class GameFactory {
-    static createGame(gameType: string, roomId: string): Game {
+    static createGame(gameType: string, room: Room): Game {
         switch (gameType) {
             case "spades":
-                return new Spades(roomId);
+                return new SpadesGame(room);
             case "dominoes":
-                return new Dominoes(roomId);
+                return new Dominoes(room);
             default:
                 throw new Error("Unknown game type");
         }

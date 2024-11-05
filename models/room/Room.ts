@@ -1,8 +1,10 @@
 import { Game } from "../game/Game";
+import { GameFactory } from "../game/GameFactory";
+import { SpadesGame } from "../game/Spades";
 import { Player, PublicPlayer } from "../player/Player";
 
 export class Room {
-    roomId: string;
+    id: string;
     roomStatus: "open" | "in_progress" | "closed" = "open";
     players: { [id: string]: Player } = {}; // Using an object to store players
     partyLeaderId: string | null = null;
@@ -12,7 +14,7 @@ export class Room {
     turnOrder: string[] = []; // Array to store player IDs in play order
 
     constructor(roomId: string) {
-        this.roomId = roomId;
+        this.id = roomId;
     }
 
     getRoomState() {
@@ -83,8 +85,10 @@ export class Room {
             throw new Error("Not enough players to start the game.");
         }
 
+
+        this.gameInstance = GameFactory.createGame("spades", this);
+        this.gameInstance.startGame();
         this.roomStatus = "in_progress";
-        // this.game = new Game(this.gameType); // Assuming you have a Game class
         console.log("Game started!");
     }
 

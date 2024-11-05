@@ -1,6 +1,6 @@
 // backend/game/Card.ts
 
-export type Suit = "Spades" | "Hearts" | "Diamonds" | "Clubs";
+export type Suit = "Hearts" | "Clubs" | "Diamonds" | "Spades";
 export type Value =
     | "2"
     | "3"
