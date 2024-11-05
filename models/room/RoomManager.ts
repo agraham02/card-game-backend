@@ -19,6 +19,10 @@ export class RoomManager {
         delete this.rooms[roomId];
     }
 
+    public clearAllRooms() {
+        this.rooms = {};
+    }
+
     getAllRooms(): Room[] {
         return Object.values(this.rooms);
     }
