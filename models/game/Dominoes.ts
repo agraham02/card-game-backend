@@ -1,8 +1,11 @@
 import { BaseGame } from "./Game";
 
 export class Dominoes extends BaseGame {
-    start() {
-        console.log("Starting Dominoes game in room:", this.roomId);
+    startGame(): void {
+        throw new Error("Method not implemented.");
+    }
+    endGame(): void {
+        throw new Error("Method not implemented.");
     }
 
     handlePlayerAction(playerId: string, action: any) {
