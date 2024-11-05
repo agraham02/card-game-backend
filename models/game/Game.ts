@@ -4,13 +4,16 @@ import { Room } from "../room/Room";
 export interface Game {
     gameId: string;
     room: Room;
-    players: Player[]; // Use a Player type for better structure
+    players: { [playerId: string]: Player };
+    turnOrder: string[];
     gameState: any;
 
     startGame(): void;
     handlePlayerAction(playerId: string, action: any): void;
     getGameState(): any;
     endGame(): void;
+    getPlayers(): { [playerId: string]: Player };
+    getPlayersAsArray(): Player[];
 }
 
 interface GameState {
@@ -29,13 +32,15 @@ interface PlayerAction {
 export abstract class BaseGame implements Game {
     gameId: string;
     room: Room;
-    players: Player[];
+    players: { [playerId: string]: Player };
+    turnOrder: string[];
     gameState: GameState;
 
     constructor(room: Room) {
         this.gameId = Math.random().toString(36).substring(2, 10);
         this.room = room;
-        this.players = Object.values(room.players);
+        this.turnOrder = room.turnOrder;
+        this.players = room.players;
         this.gameState = {};
     }
 
@@ -44,15 +49,22 @@ export abstract class BaseGame implements Game {
     abstract getGameState(): GameState;
     abstract endGame(): void;
 
-    // Common methods that can be shared across games
-    protected broadcastToPlayers(event: string, data: any): void {
+    broadcastToPlayers(event: string, data: any): void {
         // Emit event to all player sockets
-        this.players.forEach((player) => {
-            player.socket.emit(event, data);
+        this.getPlayersAsArray().forEach((player) => {
+            player.socket?.emit(event, data);
         });
     }
 
-    protected findPlayerById(playerId: string): Player | undefined {
-        return this.players.find((player) => player.id === playerId);
+    getPlayer(playerId: string): Player | undefined {
+        return this.players[playerId];
+    }
+
+    getPlayers(): { [playerId: string]: Player } {
+        return this.players;
+    }
+
+    getPlayersAsArray(): Player[] {
+        return Object.values(this.players);
     }
 }
