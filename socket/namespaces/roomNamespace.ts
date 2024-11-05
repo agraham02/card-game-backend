@@ -6,10 +6,8 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
     const roomNamespace = io.of("/room");
 
     roomNamespace.on("connection", (socket: Socket) => {
-        console.log("Client connected to the /room");
-
         // Handle room creation
-        socket.on("CREATE_ROOM", ({ roomName, player }) => {
+        socket.on("CREATE_ROOM", ({ roomName, playerName }) => {
             const roomId =
                 roomName || Math.random().toString(36).substring(2, 10);
 
@@ -19,32 +17,33 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
             }
 
             const room = roomManager.createRoom(roomId);
-            room.addPlayer(player);
+            const newPlayer = new Player(socket.id, playerName, socket);
+            room.addPlayer(newPlayer);
             // room.partyLeaderId = player.id; // Set party leader
             socket.join(roomId);
 
             // Send confirmation
-            socket.emit("ROOM_CREATED", { roomId, playerId: player.id });
-            console.log(`Room ${roomId} created by ${player.name}`);
+            socket.emit("ROOM_CREATED", { roomId, playerId: newPlayer.id });
+            console.log(`Room ${roomId} created by ${newPlayer.name}`);
         });
 
         // Handle player joining room
-        socket.on("JOIN_ROOM", ({ roomName, playerName }) => {
-            console.log(`Player ${playerName} wants to join room ${roomName}`);
-            let room = roomManager.getRoom(roomName);
+        socket.on("JOIN_ROOM", ({ roomId, playerName }) => {
+            console.log(`Player ${playerName} wants to join room ${roomId}`);
+            let room = roomManager.getRoom(roomId);
 
             if (!room) {
-                room = roomManager.createRoom(roomName);
+                room = roomManager.createRoom(roomId);
             }
 
             const newPlayer = new Player(socket.id, playerName, socket);
-            roomManager.addPlayerToRoom(roomName, newPlayer);
-            socket.join(roomName);
+            roomManager.addPlayerToRoom(roomId, newPlayer);
+            socket.join(roomId);
 
-            roomNamespace.to(roomName).emit("ROOM_STATE_UPDATED", {
+            roomNamespace.to(roomId).emit("ROOM_STATE_UPDATED", {
                 roomState: room.getRoomState(),
             });
-            console.log(`${newPlayer.name} joined room ${roomName}`);
+            console.log(`${newPlayer.name} joined room ${roomId}`);
         });
 
         socket.on(
@@ -53,8 +52,8 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
                 const room = roomManager.getRoom(roomId);
 
                 if (room && room.isPartyLeader(playerId)) {
-                    room.setGameType(gameType);
-                    room.setGameRules(gameRules);
+                    // room.setGameType(gameType);
+                    // room.setGameRules(gameRules);
                     roomNamespace
                         .to(roomId)
                         .emit("GAME_TYPE_SET", { gameType, gameRules });
@@ -140,28 +139,60 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
             }
         });
 
-        socket.on("START_GAME", ({ roomId, playerId }) => {
+        socket.on("START_GAME", async ({ roomId, playerId }) => {
             const room = roomManager.getRoom(roomId);
 
-            if (room && room.isPartyLeader(playerId)) {
-                // Initialize game instance
-                // room.setGame(room.gameType);
-                roomNamespace
-                    .to(roomId)
-                    .emit("GAME_STARTED", { gameType: room.gameType });
-                console.log(`Game started in room ${roomId}`);
-            } else {
+            if (!room) {
+                socket.emit("ERROR", { message: "Room not found." });
+                return;
+            }
+
+            if (!room.isPartyLeader(playerId)) {
                 socket.emit("ERROR", {
-                    message: "Only the party leader can start the game",
+                    message: "Only the party leader can start the game.",
                 });
+                return;
+            }
+
+            try {
+                // Check player count (Spades typically requires 4 players)
+                if (Object.keys(room.players).length !== 4) {
+                    socket.emit("ERROR", {
+                        message: "Spades requires exactly 4 players.",
+                    });
+                    return;
+                }
+
+                // Initialize the Spades game
+                // const spadesGame = new SpadesGame(room);
+
+                // Store the game instance in the room
+                // room.gameInstance = spadesGame;
+
+                // Start the game and get the initial game state
+                // spadesGame.startGame();
+
+                // Update room status
+                room.roomStatus = "in_progress";
+
+                // Broadcast 'GAME_STARTED' event with initial game state
+                // roomNamespace
+                //     .to(roomId)
+                //     .emit("GAME_STARTED", { gameState: initialGameState });
+
+                // Set up game-specific event listeners
+                // setupGameEventListeners(roomId, spadesGame);
+            } catch (error) {
+                console.error("Error starting game:", error);
+                socket.emit("ERROR", { message: "Failed to start the game." });
             }
         });
 
         socket.on("disconnect", () => {
-            const roomName = roomManager.removePlayerFromRoom(socket.id);
-            const room = roomManager.getRoom(roomName);
+            const roomId = roomManager.removePlayerFromRoom(socket.id);
+            const room = roomManager.getRoom(roomId);
             if (room) {
-                roomNamespace.to(roomName).emit("ROOM_STATE_UPDATED", {
+                roomNamespace.to(roomId).emit("ROOM_STATE_UPDATED", {
                     roomState: room.getRoomState(),
                 });
             }
@@ -169,3 +200,22 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
         });
     });
 };
+
+// function setupGameEventListeners(roomId: string, spadesGame: SpadesGame) {
+//     const room = roomManager.getRoom(roomId);
+//     if (!room) return;
+
+//     for (const playerId in room.players) {
+//         const player = room.players[playerId];
+//         const socket = player.socket;
+
+//         socket.on("PLAYER_ACTION", (action) => {
+//             spadesGame.handlePlayerAction(playerId, action);
+//         });
+
+//         // Clean up event listeners when game ends
+//         spadesGame.endGame = () => {
+//             socket.off("PLAYER_ACTION");
+//         };
+//     }
+// }
