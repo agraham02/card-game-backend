@@ -163,22 +163,12 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
                     return;
                 }
 
-                // Initialize the Spades game
-                // const spadesGame = new SpadesGame(room);
-
-                // Store the game instance in the room
-                // room.gameInstance = spadesGame;
-
-                // Start the game and get the initial game state
-                // spadesGame.startGame();
-
-                // Update room status
-                room.roomStatus = "in_progress";
+                room.startGame(playerId, "spades");
 
                 // Broadcast 'GAME_STARTED' event with initial game state
-                // roomNamespace
-                //     .to(roomId)
-                //     .emit("GAME_STARTED", { gameState: initialGameState });
+                roomNamespace.to(roomId).emit("GAME_STARTED", {
+                    roomState: room.getRoomState(),
+                });
 
                 // Set up game-specific event listeners
                 // setupGameEventListeners(roomId, spadesGame);

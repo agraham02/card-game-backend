@@ -7,8 +7,9 @@ export class SpadesGameData {
     bid: number = 0;
     tricksWon: number = 0;
 
-    constructor(hand) {
+    constructor(hand: Card[]) {
         // Initialization code
+        this.hand = hand;
     }
 
     makeBid(bid: number): void {

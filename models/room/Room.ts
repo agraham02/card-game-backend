@@ -1,11 +1,11 @@
 import { Game } from "../game/Game";
 import { GameFactory } from "../game/GameFactory";
-import { SpadesGame } from "../game/Spades";
+import { SpadesGame } from "../game/SpadesGame";
 import { Player, PublicPlayer } from "../player/Player";
 
 export class Room {
     id: string;
-    roomStatus: "open" | "in_progress" | "closed" = "open";
+    status: "open" | "in_progress" | "closed" = "open";
     players: { [id: string]: Player } = {}; // Using an object to store players
     partyLeaderId: string | null = null;
     gameInstance?: Game;
@@ -22,8 +22,10 @@ export class Room {
             players: this.getAllPlayers(),
             partyLeaderId: this.partyLeaderId,
             // gameType: this.gameType,
+            gameInstance: this.gameInstance,
             gameRules: this.gameRules,
             turnOrder: this.turnOrder,
+            status: this.status,
         };
     }
 
@@ -67,7 +69,7 @@ export class Room {
     canJoinRoom(): boolean {
         return (
             Object.keys(this.players).length < this.maxPlayers &&
-            this.roomStatus === "open"
+            this.status === "open"
         ); // Check if room is full or open
     }
 
@@ -76,7 +78,7 @@ export class Room {
         return this.partyLeaderId === playerId;
     }
 
-    startGame(playerId: string): void {
+    startGame(playerId: string, gameType: string): void {
         if (!this.isPartyLeader(playerId)) {
             throw new Error("Only the party leader can start the game.");
         }
@@ -85,10 +87,9 @@ export class Room {
             throw new Error("Not enough players to start the game.");
         }
 
-
-        this.gameInstance = GameFactory.createGame("spades", this);
+        this.gameInstance = GameFactory.createGame(gameType, this);
         this.gameInstance.startGame();
-        this.roomStatus = "in_progress";
+        this.status = "in_progress";
         console.log("Game started!");
     }
 

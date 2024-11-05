@@ -1,4 +1,4 @@
-import { Player } from "../player/Player";
+import { Player, PublicPlayer } from "../player/Player";
 import { Room } from "../room/Room";
 
 export interface Game {
@@ -39,15 +39,18 @@ export abstract class BaseGame implements Game {
     abstract getGameState(): any;
     abstract endGame(): void;
 
-    // Common methods that can be shared across games
-    protected broadcastToPlayers(event: string, data: any): void {
-        // Emit event to all player sockets
-        this.players.forEach((player) => {
-            player.socket.emit(event, data);
-        });
+    getAllPlayers(): PublicPlayer[] {
+        return Object.values(this.players).map((player) =>
+            player.toPublicObject()
+        );
     }
 
-    protected findPlayerById(playerId: string): Player | undefined {
-        return this.players.find((player) => player.id === playerId);
-    }
+    // Common methods that can be shared across games
+    protected broadcastToPlayer(
+        playerId: string,
+        event: string,
+        data: any
+    ): void {}
+
+    protected broadcastToAllPlayers(event: string, data: any): void {}
 }
