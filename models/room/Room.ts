@@ -1,3 +1,4 @@
+import { Game } from "../game/Game";
 import { Player, PublicPlayer } from "../player/Player";
 
 export class Room {
@@ -5,7 +6,7 @@ export class Room {
     roomStatus: "open" | "in_progress" | "closed" = "open";
     players: { [id: string]: Player } = {}; // Using an object to store players
     partyLeaderId: string | null = null;
-    gameType: string | null = null;
+    gameInstance?: Game;
     gameRules: any = {};
     maxPlayers: number = 4;
     turnOrder: string[] = []; // Array to store player IDs in play order
@@ -18,19 +19,15 @@ export class Room {
         return {
             players: this.getAllPlayers(),
             partyLeaderId: this.partyLeaderId,
-            gameType: this.gameType,
+            // gameType: this.gameType,
             gameRules: this.gameRules,
             turnOrder: this.turnOrder,
         };
     }
 
-    setGameType(gameType: string): void {
-        this.gameType = gameType;
-    }
-
-    setGameRules(rules: any): void {
-        this.gameRules = rules;
-    }
+    // setGameRules(rules: any): void {
+    //     this.gameRules = rules;
+    // }
 
     addPlayer(player: Player): void {
         if (!this.players[player.id]) {
@@ -44,6 +41,11 @@ export class Room {
 
     removePlayer(playerId: string): void {
         delete this.players[playerId]; // Remove player by their ID
+
+        // Remove the playerId from the turnOrder array
+        this.turnOrder = this.turnOrder.filter((id) => id !== playerId);
+
+        // If the party leader left, assign a new party leader if there are players left
         if (this.partyLeaderId === playerId) {
             const playerIds = Object.keys(this.players);
             this.partyLeaderId = playerIds.length > 0 ? playerIds[0] : null; // Set new party leader if needed
@@ -55,7 +57,9 @@ export class Room {
     }
 
     getAllPlayers(): PublicPlayer[] {
-        return Object.values(this.players).map((player) => player.toPublicObject()); // Get all player info as an array
+        return Object.values(this.players).map((player) =>
+            player.toPublicObject()
+        ); // Get all player info as an array
     }
 
     canJoinRoom(): boolean {
@@ -106,7 +110,7 @@ export class Room {
         }
 
         if (newSettings.gameType) {
-            this.setGameType(newSettings.gameType);
+            // this.setGameType(newSettings.gameType);
         }
 
         // Assuming you have a pointLimit property
