@@ -80,4 +80,8 @@ export class Deck {
     deal(numberOfCards: number): Card[] {
         return this.cards.splice(0, numberOfCards);
     }
+
+    getSize(): number {
+        return this.cards.length;
+    }
 }
