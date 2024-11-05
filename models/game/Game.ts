@@ -4,21 +4,14 @@ import { Room } from "../room/Room";
 export interface Game {
     gameId: string;
     room: Room;
-    players: Player[]; // Use a Player type for better structure
+    players: { [id: string]: Player }; // Use a Player type for better structure
+    turnOrder: string[];
     gameState: any;
 
     startGame(): void;
     handlePlayerAction(playerId: string, action: any): void;
     getGameState(): any;
     endGame(): void;
-}
-
-interface GameState {
-    // players: { id: string; name: string; teamId: number }[];
-    // teams: { [teamId: number]: Player[] };
-    // currentTurn: string;
-    // scores: { [teamId: string]: number };
-    // // Add other properties as needed
 }
 
 interface PlayerAction {
@@ -29,19 +22,21 @@ interface PlayerAction {
 export abstract class BaseGame implements Game {
     gameId: string;
     room: Room;
-    players: Player[];
-    gameState: GameState;
+    players: { [id: string]: Player };
+    turnOrder: string[];
+    gameState: any;
 
     constructor(room: Room) {
         this.gameId = Math.random().toString(36).substring(2, 10);
         this.room = room;
-        this.players = Object.values(room.players);
+        this.players = room.players;
+        this.turnOrder = room.turnOrder;
         this.gameState = {};
     }
 
     abstract startGame(): void;
     abstract handlePlayerAction(playerId: string, action: PlayerAction): void;
-    abstract getGameState(): GameState;
+    abstract getGameState(): any;
     abstract endGame(): void;
 
     // Common methods that can be shared across games
