@@ -1,7 +1,53 @@
 // Room.test.ts
 
-import { Room } from "../models/room/Room";
-import { Player } from "../models/player/Player";
+import { Room } from "../../models/room/Room";
+import { Player } from "../../models/player/Player";
+
+describe("Room Model", () => {
+    let room: Room;
+    let players: Player[];
+
+    beforeEach(() => {
+        room = new Room("room1");
+        players = [
+            new Player("player1", "Alice", null),
+            new Player("player2", "Bob", null),
+            new Player("player3", "Charlie", null),
+            new Player("player4", "Diana", null),
+        ];
+    });
+
+    test("should initialize with correct ID and status", () => {
+        expect(room.id).toBe("room1");
+        expect(room.status).toBe("open");
+    });
+
+    test("should add players and assign party leader", () => {
+        players.forEach((player) => room.addPlayer(player));
+        expect(Object.keys(room.players)).toHaveLength(4);
+        expect(room.partyLeaderId).toBe("player1");
+    });
+
+    test("should not start game with fewer than 4 players", () => {
+        room.addPlayer(players[0]);
+        room.addPlayer(players[1]);
+        expect(() => room.startGame("player1", "spades")).toThrow(
+            "Not enough players to start the game."
+        );
+    });
+
+    test("should set room status to in_progress on game start", () => {
+        players.forEach((player) => room.addPlayer(player));
+        room.startGame("player1", "spades");
+        expect(room.status).toBe("in_progress");
+    });
+
+    test("should reassign party leader if current leader leaves", () => {
+        players.forEach((player) => room.addPlayer(player));
+        room.removePlayer("player1");
+        expect(room.partyLeaderId).toBe("player2");
+    });
+});
 
 describe("Room Class - addPlayer", () => {
     let room: Room;

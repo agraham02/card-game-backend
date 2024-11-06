@@ -2,8 +2,8 @@
 
 import { Server } from "socket.io";
 import Client, { Socket as ClientSocket } from "socket.io-client";
-import { setupRoomNamespace } from "../socket/namespaces/roomNamespace";
-import { RoomManager } from "../models/room/RoomManager";
+import { setupRoomNamespace } from "../../socket/namespaces/roomNamespace";
+import { RoomManager } from "../../models/room/RoomManager";
 import { createServer, Server as HttpServer } from "http";
 import { AddressInfo } from "net";
 

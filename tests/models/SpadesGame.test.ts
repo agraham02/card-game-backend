@@ -1,9 +1,81 @@
 // tests/SpadesGame.test.ts
 
-import { SpadesGame } from "../models/game/SpadesGame";
-import { Room } from "../models/room/Room";
-import { Player } from "../models/player/Player";
-import { SpadesGameData } from "../models/game/SpadesGameData";
+import { SpadesGame } from "../../models/game/SpadesGame";
+import { Room } from "../../models/room/Room";
+import { Player } from "../../models/player/Player";
+import { SpadesGameData } from "../../models/game/SpadesGameData";
+import { Card } from "../../models/game/Card";
+
+describe("Spades Game Mechanics", () => {
+    let room: Room;
+    let players: Player[];
+    let spadesGame: SpadesGame;
+
+    beforeEach(() => {
+        room = new Room("room1");
+        players = [
+            new Player("player1", "Alice", null),
+            new Player("player2", "Bob", null),
+            new Player("player3", "Charlie", null),
+            new Player("player4", "Diana", null),
+        ];
+        players.forEach((player) => room.addPlayer(player));
+        spadesGame = new SpadesGame(room);
+        spadesGame.startGame();
+    });
+
+    test("should initialize game state and assign teams", () => {
+        expect(Object.keys(spadesGame.teams)).toHaveLength(2);
+        expect(spadesGame.teams[1]).toContain(players[0]);
+        expect(spadesGame.teams[1]).toContain(players[2]);
+    });
+
+    test("should handle bidding correctly", () => {
+        const bids: { [playerId: string]: number } = {
+            player1: 3,
+            player2: 4,
+            player3: 2,
+            player4: 4,
+        };
+        for (const playerId in bids) {
+            spadesGame.makeBid(playerId, bids[playerId]);
+        }
+        expect(Object.values(spadesGame.gameState.bids)).toEqual([3, 4, 2, 4]);
+    });
+
+    test("should handle trick-taking and determine winner", () => {
+        const card1 = { suit: "Spades", value: "A" };
+        const card2 = { suit: "Spades", value: "K" };
+        const card3 = { suit: "Hearts", value: "2" };
+        const card4 = { suit: "Diamonds", value: "3" };
+
+        spadesGame.handlePlayerAction("player1", {
+            type: "PLAY_CARD",
+            card: card1,
+        });
+        spadesGame.handlePlayerAction("player2", {
+            type: "PLAY_CARD",
+            card: card2,
+        });
+        spadesGame.handlePlayerAction("player3", {
+            type: "PLAY_CARD",
+            card: card3,
+        });
+        spadesGame.handlePlayerAction("player4", {
+            type: "PLAY_CARD",
+            card: card4,
+        });
+
+        expect(spadesGame.gameState.currentTrick).toEqual([]);
+        // Additional assertions to check the trick winner logic
+    });
+
+    test("should calculate scores and end game at winning score", () => {
+        spadesGame.gameState.scores = { team1: 500, team2: 450 };
+        spadesGame.calculateScores();
+        expect(spadesGame.gameState).toBeNull();
+    });
+});
 
 describe("SpadesGame - startGame", () => {
     let room: Room;
@@ -36,13 +108,15 @@ describe("SpadesGame - startGame", () => {
 
         // Check that hands have been dealt
         players.forEach((player) => {
-            expect((player.gameData["spades"] as SpadesGameData).hand.length).toBe(13);
+            expect(
+                (player.gameData["spades"] as SpadesGameData).hand.length
+            ).toBe(13);
         });
 
         // Check that the game state is initialized
         const gameState = spadesGame.getGameState();
         expect(gameState.currentTurnIndex).toBeDefined();
-        expect(gameState.scores).toEqual({ team1: 0, team2: 0 });
+        expect(gameState.scores).toEqual({ 1: 0, 2: 0 });
     });
 
     test("should throw an error when starting the game with less than 4 players", () => {
@@ -105,7 +179,7 @@ describe("SpadesGame - handlePlayerAction", () => {
 
         expect(() => {
             spadesGame.handlePlayerAction(otherPlayerId, action);
-        }).toThrow("It's not your turn.");
+        }).toThrow("It's not your turn to play.");
     });
 
     test("should not allow a player to play a card they do not have", () => {
@@ -144,7 +218,7 @@ describe("SpadesGame - getGameState", () => {
 
         expect(gameState).toBeDefined();
         expect(gameState.currentTurnIndex).toBeDefined();
-        expect(gameState.scores).toEqual({ team1: 0, team2: 0 });
+        expect(gameState.scores).toEqual({ 1: 0, 2: 0 });
         // Add more assertions as needed
     });
 });
@@ -171,9 +245,12 @@ describe("SpadesGame - endGame", () => {
         spadesGame.endGame();
 
         // Verify that game state is reset or marked as ended
-        expect(spadesGame.gameState).toBeNull();
-        // Or if you set an 'ended' flag
-        // expect(spadesGame.gameState.ended).toBe(true);
+        expect(spadesGame.gameState).toBeDefined();
+        expect(spadesGame.gameState.currentTurnIndex).toBe(0);
+        expect(spadesGame.gameState.currentTrick).toEqual([]);
+        expect(spadesGame.gameState.scores).toEqual({ 1: 0, 2: 0 });
+        expect(spadesGame.gameState.bids).toEqual({});
+        expect(spadesGame.gameState.tricksWon).toEqual({});
     });
 });
 
@@ -197,7 +274,7 @@ describe("SpadesGame - simulate a full game", () => {
 
     test("should simulate a full game from bidding to game end", () => {
         // Simulate bidding phase
-        const bids = {
+        const bids: { [playerId: string]: number } = {
             player1: 3,
             player2: 4,
             player3: 2,
@@ -206,7 +283,8 @@ describe("SpadesGame - simulate a full game", () => {
 
         // Players make their bids
         for (let i = 0; i < players.length; i++) {
-            const playerId = spadesGame.gameState.currentTurn;
+            const currentTurnIndex = spadesGame.gameState.currentTurnIndex;
+            const playerId = spadesGame.turnOrder[currentTurnIndex];
             const bid = bids[playerId];
             spadesGame.makeBid(playerId, bid);
         }
@@ -220,12 +298,12 @@ describe("SpadesGame - simulate a full game", () => {
             const trickCards: { [playerId: string]: Card } = {};
 
             for (let j = 0; j < players.length; j++) {
-                const currentPlayerId = spadesGame.gameState.currentTurn;
-                const playerHand = (
-                    players.find((p) => p.id === currentPlayerId)!.gameData[
-                        "spades"
-                    ] as SpadesGameData
-                ).hand;
+                const currentPlayerIndex =
+                    spadesGame.gameState.currentTurnIndex;
+                const currentPlayerId =
+                    spadesGame.turnOrder[currentPlayerIndex];
+                const playerHand =
+                    spadesGame.getGameStateForPlayer(currentPlayerId).hand;
 
                 // For simplicity, play the first card in hand
                 const cardToPlay = playerHand[0];
@@ -262,7 +340,9 @@ describe("SpadesGame - simulate a full game", () => {
 
             // Simulate bidding
             for (let i = 0; i < players.length; i++) {
-                const playerId = spadesGame.gameState.currentTurn;
+                const currentPlayerIndex =
+                    spadesGame.gameState.currentTurnIndex;
+                const playerId = spadesGame.turnOrder[currentPlayerIndex];
                 const bid = bids[playerId]; // Use the same bids for simplicity
                 spadesGame.makeBid(playerId, bid);
             }
@@ -270,7 +350,10 @@ describe("SpadesGame - simulate a full game", () => {
             // Simulate trick-taking
             for (let i = 0; i < 13; i++) {
                 for (let j = 0; j < players.length; j++) {
-                    const currentPlayerId = spadesGame.gameState.currentTurn;
+                    const currentPlayerIndex =
+                        spadesGame.gameState.currentTurnIndex;
+                    const currentPlayerId =
+                        spadesGame.turnOrder[currentPlayerIndex];
                     const playerHand = (
                         players.find((p) => p.id === currentPlayerId)!.gameData[
                             "spades"
@@ -303,6 +386,11 @@ describe("SpadesGame - simulate a full game", () => {
         spadesGame.endGame();
 
         // Verify that the game has ended
-        expect(spadesGame.gameState).toBeNull();
+        expect(spadesGame.gameState).toBeDefined();
+        expect(spadesGame.gameState.currentTurnIndex).toBe(0);
+        expect(spadesGame.gameState.currentTrick).toEqual([]);
+        expect(spadesGame.gameState.scores).toEqual({ 1: 0, 2: 0 });
+        expect(spadesGame.gameState.bids).toEqual({});
+        expect(spadesGame.gameState.tricksWon).toEqual({});
     });
 });
