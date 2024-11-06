@@ -190,22 +190,3 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
         });
     });
 };
-
-// function setupGameEventListeners(roomId: string, spadesGame: SpadesGame) {
-//     const room = roomManager.getRoom(roomId);
-//     if (!room) return;
-
-//     for (const playerId in room.players) {
-//         const player = room.players[playerId];
-//         const socket = player.socket;
-
-//         socket.on("PLAYER_ACTION", (action) => {
-//             spadesGame.handlePlayerAction(playerId, action);
-//         });
-
-//         // Clean up event listeners when game ends
-//         spadesGame.endGame = () => {
-//             socket.off("PLAYER_ACTION");
-//         };
-//     }
-// }

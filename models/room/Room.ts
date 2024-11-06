@@ -126,28 +126,6 @@ export class Room {
         console.log("Game settings updated:", newSettings);
     }
 
-    assignPlayerToTeam(
-        playerId: string,
-        leaderId: string,
-        targetPlayerId: string,
-        teamId: string
-    ): void {
-        if (!this.isPartyLeader(leaderId)) {
-            throw new Error("Only the party leader can assign teams.");
-        }
-
-        if (!this.players[targetPlayerId]) {
-            throw new Error("Player not found.");
-        }
-
-        // if (!this.teams[teamId]) {
-        //     throw new Error("Invalid team.");
-        // }
-
-        // this.teams[teamId].push(this.players[targetPlayerId]);
-        // console.log(`Player ${targetPlayerId} assigned to team ${teamId}`);
-    }
-
     promoteToLeader(currentLeaderId: string, newLeaderId: string): void {
         if (!this.isPartyLeader(currentLeaderId)) {
             throw new Error(
