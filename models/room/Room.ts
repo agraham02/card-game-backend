@@ -19,10 +19,10 @@ export class Room {
 
     getRoomState() {
         return {
+            id: this.id,
             players: this.getAllPlayers(),
             partyLeaderId: this.partyLeaderId,
-            // gameType: this.gameType,
-            gameInstance: this.gameInstance,
+            // gameInstance: this.gameInstance,
             gameRules: this.gameRules,
             turnOrder: this.turnOrder,
             status: this.status,

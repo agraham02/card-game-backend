@@ -5,10 +5,27 @@ export class RoomManager {
     private rooms: { [roomId: string]: Room } = {};
     private playerRoomMap: { [socketId: string]: string } = {};
 
-    createRoom(roomId: string): Room {
-        const newRoom = new Room(roomId);
-        this.rooms[roomId] = newRoom;
-        return newRoom;
+    createRoom(roomId: string, maxPlayers: number = 4): Room {
+        const room = new Room(roomId);
+        room.maxPlayers = maxPlayers;
+        this.rooms[roomId] = room;
+        return room;
+    }
+
+    initializeRoom(roomId: string, players: Player[] = []): void {
+        const room = this.rooms[roomId];
+        if (!room) throw new Error("Room does not exist");
+
+        // Set initial properties for the room
+        if (!room.partyLeaderId && players.length > 0) {
+            room.partyLeaderId = players[0].id; // Assign the first player as party leader
+        }
+
+        // Additional initialization logic here if needed
+        room.players = players.reduce((acc, player) => {
+            acc[player.id] = player;
+            return acc;
+        }, {} as { [id: string]: Player });
     }
 
     getRoom(roomId: string): Room | undefined {

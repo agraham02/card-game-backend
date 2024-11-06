@@ -3,13 +3,14 @@
 import { Card } from "./Card";
 
 export class SpadesGameData {
-    hand: Card[] = [];
-    bid: number = 0;
-    tricksWon: number = 0;
+    hand: Card[];
+    bid: number | null;
+    tricksWon: number;
 
     constructor(hand: Card[]) {
-        // Initialization code
         this.hand = hand;
+        this.bid = null;
+        this.tricksWon = 0;
     }
 
     makeBid(bid: number): void {

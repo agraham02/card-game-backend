@@ -3,7 +3,7 @@ import { Room } from "../room/Room";
 
 export interface Game {
     gameId: string;
-    room: Room;
+    roomId: string;
     players: { [id: string]: Player }; // Use a Player type for better structure
     turnOrder: string[];
     gameState: any;
@@ -21,14 +21,14 @@ interface PlayerAction {
 
 export abstract class BaseGame implements Game {
     gameId: string;
-    room: Room;
+    roomId: string;
     players: { [id: string]: Player };
     turnOrder: string[];
     gameState: any;
 
     constructor(room: Room) {
         this.gameId = Math.random().toString(36).substring(2, 10);
-        this.room = room;
+        this.roomId = room.id;
         this.players = room.players;
         this.turnOrder = room.turnOrder;
         this.gameState = {};
@@ -52,5 +52,9 @@ export abstract class BaseGame implements Game {
         data: any
     ): void {}
 
-    protected broadcastToAllPlayers(event: string, data: any): void {}
+    protected broadcastToAllPlayers(event: string, data: any): void {
+        for (const player of Object.values(this.players)) {
+            player.socket?.emit(event, data);
+        }
+    }
 }

@@ -11,7 +11,7 @@ export class GameFactory {
             case "dominoes":
                 return new Dominoes(room);
             default:
-                throw new Error("Unknown game type");
+                throw new Error(`Unsupported game type: ${gameType}`);
         }
     }
 }
