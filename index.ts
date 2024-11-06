@@ -6,8 +6,8 @@ import { Server } from "socket.io";
 
 import morgan from "morgan";
 import { setupRoomNamespace } from "./socket/namespaces/roomNamespace";
-import { setupGameNamespace } from "./socket/namespaces/gameNamespace";
 import { RoomManager } from "./models/room/RoomManager";
+import { setupSpadesNamespace } from "./socket/namespaces/spadesNamespace";
 
 const app = express();
 app.use(morgan("dev"));
@@ -23,7 +23,7 @@ const io = new Server(server, {
 
 const roomManager = new RoomManager();
 setupRoomNamespace(io, roomManager);
-setupGameNamespace(io);
+setupSpadesNamespace(io, roomManager);
 
 app.get("/", (req, res) => {
     res.send("Server is running");
