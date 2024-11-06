@@ -1,6 +1,10 @@
 import { Server, Socket } from "socket.io";
 import { RoomManager } from "../../models/room/RoomManager";
 import { Player } from "../../models/player/Player";
+import {
+    requireEnoughPlayers,
+    requirePartyLeader,
+} from "../../middleware/validationMiddleware";
 
 export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
     const roomNamespace = io.of("/room");
@@ -139,39 +143,21 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
             }
         });
 
-        socket.on("START_GAME", async ({ roomId, playerId }) => {
-            const room = roomManager.getRoom(roomId);
-
-            if (!room) {
-                socket.emit("ERROR", { message: "Room not found." });
-                return;
-            }
-
-            if (!room.isPartyLeader(playerId)) {
-                socket.emit("ERROR", {
-                    message: "Only the party leader can start the game.",
-                });
-                return;
-            }
-
+        socket.on("START_GAME", async ({ roomId, playerId, gameType }) => {
             try {
-                // Check player count (Spades typically requires 4 players)
-                if (Object.keys(room.players).length !== 4) {
-                    socket.emit("ERROR", {
-                        message: "Spades requires exactly 4 players.",
+                requirePartyLeader(roomManager, roomId, playerId);
+                requireEnoughPlayers(roomManager, roomId, 4);
+
+                const room = roomManager.getRoom(roomId);
+                if (room) {
+                    room.startGame(playerId, gameType);
+                    roomNamespace.to(roomId).emit("GAME_STARTED", {
+                        roomId,
+                        gameType,
                     });
-                    return;
+
+                    console.log(`Game started in room ${roomId}`);
                 }
-
-                room.startGame(playerId, "spades");
-
-                // Broadcast 'GAME_STARTED' event with initial game state
-                roomNamespace.to(roomId).emit("GAME_STARTED", {
-                    roomState: room.getRoomState(),
-                });
-
-                // Set up game-specific event listeners
-                // setupGameEventListeners(roomId, spadesGame);
             } catch (error) {
                 console.error("Error starting game:", error);
                 socket.emit("ERROR", { message: "Failed to start the game." });
