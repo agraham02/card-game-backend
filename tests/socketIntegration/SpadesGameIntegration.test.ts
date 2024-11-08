@@ -1,4 +1,4 @@
-// tests/SpadesGameIntegration.test.ts
+// tests/SpadesGameSocketIntegration.test.ts
 
 import { Server } from "socket.io";
 import Client, { Socket as ClientSocket } from "socket.io-client";
@@ -9,7 +9,7 @@ import { AddressInfo } from "net";
 import { Card } from "../../models/game/Card";
 import { SpadesGame } from "../../models/game/SpadesGame";
 
-describe("SpadesGame Integration Tests", () => {
+describe("Spades Game Socket Integration Tests", () => {
     let ioServer: Server;
     let httpServer: HttpServer;
     let httpServerAddr: AddressInfo | string | null;
@@ -86,7 +86,7 @@ describe("SpadesGame Integration Tests", () => {
 
         // Set up clients
         playerNames.forEach((name, index) => {
-            const clientSocket = Client(`http://localhost:${port}/room`, {
+            const clientSocket = Client(`http://localhost:${port}`, {
                 path: "/socket.io",
             });
             clientSockets.push(clientSocket);
@@ -119,7 +119,7 @@ describe("SpadesGame Integration Tests", () => {
             });
 
             clientSocket.on("ROOM_STATE_UPDATED", ({ roomState }) => {
-                if (roomState.players.length === 4) {
+                if (Object.keys(roomState.players).length === 4) {
                     connectedClients++;
                     if (connectedClients === 4) {
                         // All players have joined; start the game
@@ -127,12 +127,18 @@ describe("SpadesGame Integration Tests", () => {
                         leaderSocket.emit("START_GAME", {
                             roomId: roomName,
                             playerId: playerIds[playerNames[0]],
+                            gameType: "spades",
                         });
                     }
                 }
             });
 
-            clientSocket.on("GAME_STARTED", ({ gameState }) => {
+            clientSocket.on("GAME_STARTED", ({ roomId, gameType }) => {
+                expect(roomId).toBe(roomName);
+                expect(gameType).toBe("spades");
+            });
+
+            clientSocket.on("GAME_STATE_UPDATE", ({ gameState }) => {
                 // Verify that each client receives their hand
                 expect(gameState.hand.length).toBe(13);
                 expect(gameState.currentTurnIndex).toBeDefined();
@@ -140,27 +146,49 @@ describe("SpadesGame Integration Tests", () => {
 
                 gameStartedClients++;
                 if (gameStartedClients === 4) {
-                    // All clients have received the game started event
+                    // All clients have received the game state
                     // Start bidding
                     startBidding();
                 }
             });
 
-            clientSocket.on("BID_MADE", () => {
-                bidsMade++;
-                if (bidsMade === 4) {
-                    // All bids have been made, start playing tricks
-                    playTricks();
+            clientSocket.on(
+                "BID_MADE",
+                ({ playerId, bid, currentTurnIndex }) => {
+                    bidsMade++;
+                    if (bidsMade === 4) {
+                        // All bids have been made, start playing tricks
+                        playTricks();
+                    } else {
+                        makeNextBid();
+                    }
                 }
-            });
+            );
 
-            clientSocket.on("TRICK_COMPLETED", () => {
-                // Wait for all tricks to be played
-                if (cardsPlayed === 4 * 13) {
-                    // All cards have been played
-                    // Wait for scores to be calculated and game to end
+            clientSocket.on(
+                "CARD_PLAYED",
+                ({ playerId, card, currentTurnIndex }) => {
+                    // Update the hand of the player who played the card
+                    const playerName = Object.keys(playerIds).find(
+                        (name) => playerIds[name] === playerId
+                    )!;
+                    playerHands[playerName] = playerHands[playerName].filter(
+                        (c) => !(c.suit === card.suit && c.value === card.value)
+                    );
+                    playNextCard();
                 }
-            });
+            );
+
+            clientSocket.on(
+                "TRICK_COMPLETED",
+                ({ winningPlayerId, currentTurnIndex }) => {
+                    // Check if all cards have been played
+                    if (cardsPlayed === 4 * 13) {
+                        // All cards have been played
+                        // Wait for scores to be calculated and game to end
+                    }
+                }
+            );
 
             clientSocket.on("GAME_ENDED", () => {
                 gameEndedClients++;
@@ -176,18 +204,6 @@ describe("SpadesGame Integration Tests", () => {
 
         // Function to simulate bidding
         function startBidding() {
-            const room = roomManager.getRoom(roomName);
-            if (!room) {
-                done(new Error("Room not found"));
-                return;
-            }
-            const spadesGame = room.gameInstance as SpadesGame;
-            if (!spadesGame) {
-                done(new Error("Game instance not found"));
-                return;
-            }
-
-            // Simulate bidding phase
             makeNextBid();
         }
 
@@ -198,22 +214,23 @@ describe("SpadesGame Integration Tests", () => {
 
             const currentPlayerIndex = spadesGame.gameState.currentTurnIndex;
             const currentPlayerId = spadesGame.turnOrder[currentPlayerIndex];
-            const currentPlayerName = Object.keys(playerIds).find(
-                (name) => playerIds[name] === currentPlayerId
-            )!;
+            const currentPlayerName = spadesGame.players[currentPlayerId].name;
             const bid = bids[currentPlayerName];
 
             const clientSocket = playerSockets[currentPlayerName];
 
             clientSocket.emit("PLAYER_ACTION", {
-                type: "MAKE_BID",
-                bid: bid,
+                roomId: roomName,
+                playerId: currentPlayerId,
+                action: {
+                    type: "MAKE_BID",
+                    bid: bid,
+                },
             });
         }
 
         // Function to simulate playing tricks
         function playTricks() {
-            // Start playing the first card
             playNextCard();
         }
 
@@ -222,11 +239,17 @@ describe("SpadesGame Integration Tests", () => {
             const spadesGame = room?.gameInstance as SpadesGame;
             if (!spadesGame) return;
 
+            if (cardsPlayed === 4 * 13) {
+                // All cards have been played
+                // Calculate scores and end game
+                spadesGame.calculateScores();
+                spadesGame.endGame();
+                return;
+            }
+
             const currentPlayerIndex = spadesGame.gameState.currentTurnIndex;
             const currentPlayerId = spadesGame.turnOrder[currentPlayerIndex];
-            const currentPlayerName = Object.keys(playerIds).find(
-                (name) => playerIds[name] === currentPlayerId
-            )!;
+            const currentPlayerName = spadesGame.players[currentPlayerId].name;
             const clientSocket = playerSockets[currentPlayerName];
             const hand = playerHands[currentPlayerName];
 
@@ -235,30 +258,19 @@ describe("SpadesGame Integration Tests", () => {
                 return;
             }
 
-            const cardToPlay = hand.shift(); // Remove the card from the player's hand
+            const cardToPlay = hand[0]; // For simplicity, play the first card
+            hand.shift(); // Remove the card from the player's hand
 
             clientSocket.emit("PLAYER_ACTION", {
-                type: "PLAY_CARD",
-                card: cardToPlay,
+                roomId: roomName,
+                playerId: currentPlayerId,
+                action: {
+                    type: "PLAY_CARD",
+                    card: cardToPlay,
+                },
             });
 
             cardsPlayed++;
-
-            if (cardsPlayed === 4 * 13) {
-                // All cards have been played
-                // Calculate scores and end game
-                setTimeout(() => {
-                    // Allow some time for the last trick to be processed
-                    const spadesGame = room?.gameInstance as SpadesGame;
-                    spadesGame.calculateScores();
-                    spadesGame.endGame();
-                }, 1000);
-            } else {
-                // Wait for the next turn
-                clientSocket.on("CARD_PLAYED", () => {
-                    playNextCard();
-                });
-            }
         }
     });
 });

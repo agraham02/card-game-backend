@@ -68,7 +68,7 @@ describe("Room to Game Integration Tests", () => {
         let gameStartedClients = 0;
 
         playerNames.forEach((name, index) => {
-            const clientSocket = Client(`http://localhost:${port}/room`, {
+            const clientSocket = Client(`http://localhost:${port}`, {
                 path: "/socket.io",
             });
             clientSockets.push(clientSocket);

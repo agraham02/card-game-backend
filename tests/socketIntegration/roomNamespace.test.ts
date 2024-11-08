@@ -53,7 +53,7 @@ describe("Room Namespace Socket Events", () => {
             httpServerAddr && typeof httpServerAddr !== "string"
                 ? httpServerAddr.port
                 : 0;
-        clientSocket = Client(`http://localhost:${port}/room`, {
+        clientSocket = Client(`http://localhost:${port}`, {
             path: "/socket.io",
         });
         clientSocket.on("connect", done);
@@ -110,7 +110,7 @@ describe("Room Namespace Socket Events", () => {
                 httpServerAddr && typeof httpServerAddr !== "string"
                     ? httpServerAddr.port
                     : 0;
-            const clientSocket2 = Client(`http://localhost:${port}/room`, {
+            const clientSocket2 = Client(`http://localhost:${port}`, {
                 path: "/socket.io",
             });
 
@@ -199,7 +199,7 @@ describe("Room Namespace Socket Events", () => {
                 httpServerAddr && typeof httpServerAddr !== "string"
                     ? httpServerAddr.port
                     : 0;
-            const clientSocket2 = Client(`http://localhost:${port}/room`, {
+            const clientSocket2 = Client(`http://localhost:${port}`, {
                 path: "/socket.io",
             });
 
@@ -254,7 +254,7 @@ describe("Room Namespace Socket Events", () => {
                 httpServerAddr && typeof httpServerAddr !== "string"
                     ? httpServerAddr.port
                     : 0;
-            const clientSocket2 = Client(`http://localhost:${port}/room`, {
+            const clientSocket2 = Client(`http://localhost:${port}`, {
                 path: "/socket.io",
             });
 
@@ -308,7 +308,7 @@ describe("Room Namespace Socket Events", () => {
                         ? httpServerAddr.port
                         : 0;
                 const newClientSocket = Client(
-                    `http://localhost:${port}/room`,
+                    `http://localhost:${port}`,
                     {
                         path: "/socket.io",
                     }
@@ -331,14 +331,11 @@ describe("Room Namespace Socket Events", () => {
                             playerId: clientSocket.id,
                         });
 
-                        clientSocket.on(
-                            "GAME_STARTED",
-                            ({ roomState }) => {
-                                expect(roomState).toBeDefined();
-                                expect(roomState.status).toBe("in_progress");
-                                done();
-                            }
-                        );
+                        clientSocket.on("GAME_STARTED", ({ roomState }) => {
+                            expect(roomState).toBeDefined();
+                            expect(roomState.status).toBe("in_progress");
+                            done();
+                        });
 
                         // Clean up
                         clientSockets.forEach((cs) => cs.disconnect());
@@ -366,7 +363,11 @@ describe("Room Namespace Socket Events", () => {
             });
 
             clientSocket.on("ERROR", (data) => {
-                expect(data.message).toBe("Spades requires exactly 4 players.");
+                console.log(data);
+                expect(data.message).toBe("Failed to start the game.");
+                expect(data.error).toBe(
+                    "This game requires at least 4 players."
+                );
                 done();
             });
         });
@@ -387,7 +388,7 @@ describe("Room Namespace Socket Events", () => {
                 httpServerAddr && typeof httpServerAddr !== "string"
                     ? httpServerAddr.port
                     : 0;
-            const clientSocket2 = Client(`http://localhost:${port}/room`, {
+            const clientSocket2 = Client(`http://localhost:${port}`, {
                 path: "/socket.io",
             });
 
@@ -397,9 +398,11 @@ describe("Room Namespace Socket Events", () => {
                     roomId: roomName,
                     playerName: player2Name,
                 });
+                console.log("p2 joined room in test");
             });
 
             clientSocket2.on("ROOM_STATE_UPDATED", () => {
+                console.log("ROOM_STATE_UPDATED in test");
                 // Non-party leader attempts to start the game
                 clientSocket2.emit("START_GAME", {
                     roomId,
@@ -408,8 +411,9 @@ describe("Room Namespace Socket Events", () => {
             });
 
             clientSocket2.on("ERROR", (data) => {
-                expect(data.message).toBe(
-                    "Only the party leader can start the game."
+                expect(data.message).toBe("Failed to start the game.");
+                expect(data.error).toBe(
+                    "Only the party leader can perform this action."
                 );
                 clientSocket2.disconnect();
                 done();
