@@ -1,3 +1,4 @@
+import { Server } from "socket.io";
 import { Game } from "../game/Game";
 import { GameFactory } from "../game/GameFactory";
 import { SpadesGame } from "../game/SpadesGame";
@@ -155,5 +156,20 @@ export class Room {
         } else {
             throw new Error("Invalid turn order.");
         }
+    }
+
+    broadcastToPlayer(playerId: string, event: string, data: {}): void {
+        const player = this.players[playerId];
+        if (player) {
+            player.socket?.emit(event, data);
+        } else {
+            console.error(
+                `Player with ID ${playerId} not found in room ${this.id}`
+            );
+        }
+    }
+
+    broadcastToAll(event: string, data: {}, io: Server): void {
+        io.to(this.id).emit(event, data);
     }
 }
