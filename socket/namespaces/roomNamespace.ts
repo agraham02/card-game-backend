@@ -7,9 +7,7 @@ import {
 } from "../../middleware/validationMiddleware";
 
 export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
-    const roomNamespace = io.of("/room");
-
-    roomNamespace.on("connection", (socket: Socket) => {
+    io.on("connection", (socket: Socket) => {
         // Handle room creation
         socket.on("CREATE_ROOM", ({ roomName, playerName }) => {
             const roomId =
@@ -43,9 +41,12 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
             roomManager.addPlayerToRoom(roomId, newPlayer);
             socket.join(roomId);
 
-            roomNamespace.to(roomId).emit("ROOM_STATE_UPDATED", {
-                roomState: room.getRoomState(),
-            });
+            // Broadcast room state update to all players
+            room.broadcastToAll(
+                "ROOM_STATE_UPDATED",
+                { roomState: room.getRoomState() },
+                io
+            );
             console.log(`${newPlayer.name} joined room ${roomId}`);
         });
 
@@ -56,9 +57,12 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
 
                 if (room && room.isPartyLeader(playerId)) {
                     //TODO: Set game type and rules if needed
-                    roomNamespace
-                        .to(roomId)
-                        .emit("GAME_TYPE_SET", { gameType, gameRules });
+                    // Broadcast game type to all players
+                    room.broadcastToAll(
+                        "GAME_TYPE_SET",
+                        { gameType, gameRules },
+                        io
+                    );
                     console.log(
                         `Game type set to ${gameType} in room ${roomId}`
                     );
@@ -75,9 +79,11 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
 
             if (room?.isPartyLeader(playerId)) {
                 room.setTurnOrder(playerId, turnOrder);
-                roomNamespace.to(roomId).emit("ROOM_STATE_UPDATED", {
-                    roomState: room.getRoomState(),
-                });
+                room.broadcastToAll(
+                    "ROOM_STATE_UPDATED",
+                    { roomState: room.getRoomState() },
+                    io
+                );
                 console.log(`Turn order set in room ${roomId}`);
             } else {
                 socket.emit("ERROR", {
@@ -90,8 +96,7 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
             const room = roomManager.getRoom(roomId);
 
             if (room?.isPartyLeader(playerId)) {
-                //TODO: Set teams if needed
-                roomNamespace.to(roomId).emit("TEAMS_ASSIGNED", { teams });
+                room.broadcastToAll("TEAMS_ASSIGNED", { teams }, io);
                 console.log(`Teams assigned in room ${roomId}`);
             } else {
                 socket.emit("ERROR", {
@@ -105,9 +110,11 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
 
             if (room?.isPartyLeader(playerId)) {
                 room.removePlayer(targetPlayerId);
-                roomNamespace
-                    .to(roomId)
-                    .emit("PLAYER_KICKED", { playerId: targetPlayerId });
+                room.broadcastToAll(
+                    "PLAYER_KICKED",
+                    { playerId: targetPlayerId },
+                    io
+                );
                 console.log(
                     `Player ${targetPlayerId} kicked from room ${roomId}`
                 );
@@ -123,9 +130,11 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
 
             if (room?.isPartyLeader(playerId)) {
                 room.partyLeaderId = newLeaderId;
-                roomNamespace
-                    .to(roomId)
-                    .emit("PARTY_LEADER_CHANGED", { newLeaderId });
+                room.broadcastToAll(
+                    "PARTY_LEADER_CHANGED",
+                    { newLeaderId },
+                    io
+                );
                 console.log(
                     `Party leader changed to ${newLeaderId} in room ${roomId}`
                 );
@@ -139,22 +148,67 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
 
         socket.on("START_GAME", async ({ roomId, playerId, gameType }) => {
             try {
+                console.log(`Player ${playerId} wants to start the game`);
                 requirePartyLeader(roomManager, roomId, playerId);
                 requireEnoughPlayers(roomManager, roomId, 4);
 
                 const room = roomManager.getRoom(roomId);
                 if (room) {
                     room.startGame(playerId, gameType);
-                    roomNamespace.to(roomId).emit("GAME_STARTED", {
-                        roomId,
-                        gameType,
+                    room.broadcastToAll(
+                        "GAME_STARTED",
+                        { roomId, gameType },
+                        io
+                    );
+
+                    // Send initial game state to each player
+                    Object.values(room.players).forEach((player) => {
+                        const gameState =
+                            room.gameInstance?.getGameStateForPlayer(player.id);
+                        room.broadcastToPlayer(player.id, "GAME_STATE_UPDATE", {
+                            gameState,
+                        });
                     });
 
                     console.log(`Game started in room ${roomId}`);
                 }
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Error starting game:", error);
-                socket.emit("ERROR", { message: "Failed to start the game." });
+                socket.emit("ERROR", {
+                    message: "Failed to start the game.",
+                    error: error.message,
+                });
+            }
+        });
+
+        // **New PLAYER_ACTION listener within the same namespace**
+        socket.on("PLAYER_ACTION", ({ roomId, playerId, action }) => {
+            const room = roomManager.getRoom(roomId);
+
+            if (room?.gameInstance) {
+                try {
+                    // Handle the player's action
+                    room.gameInstance.handlePlayerAction(playerId, action);
+
+                    // Send updated game state to each player
+                    Object.values(room.players).forEach((player) => {
+                        const gameState =
+                            room.gameInstance?.getGameStateForPlayer(player.id);
+                        room.broadcastToPlayer(player.id, "GAME_STATE_UPDATE", {
+                            gameState,
+                        });
+                    });
+                } catch (error: any) {
+                    console.error("Error handling player action:", error);
+                    socket.emit("ERROR", {
+                        message: "Invalid action.",
+                        error: error.message,
+                    });
+                }
+            } else {
+                socket.emit("ERROR", {
+                    message: "Game not found or not started.",
+                });
             }
         });
 
@@ -162,9 +216,11 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
             const roomId = roomManager.removePlayerFromRoom(socket.id);
             const room = roomManager.getRoom(roomId);
             if (room) {
-                roomNamespace.to(roomId).emit("ROOM_STATE_UPDATED", {
-                    roomState: room.getRoomState(),
-                });
+                room.broadcastToAll(
+                    "ROOM_STATE_UPDATED",
+                    { roomState: room.getRoomState() },
+                    io
+                );
             }
             console.log("Client disconnected from /room");
         });
