@@ -8,6 +8,10 @@ export class Dominoes extends BaseGame {
         throw new Error("Method not implemented.");
     }
 
+    getGameStateForPlayer(playerId: string) {
+        throw new Error("Method not implemented.");
+    }
+
     handlePlayerAction(playerId: string, action: any) {
         console.log(`Player ${playerId} performed action in Dominoes:`, action);
     }

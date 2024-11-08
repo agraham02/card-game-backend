@@ -12,6 +12,7 @@ export interface Game {
     handlePlayerAction(playerId: string, action: any): void;
     getGameState(): any;
     endGame(): void;
+    getGameStateForPlayer(playerId: string): any;
 }
 
 interface PlayerAction {
@@ -38,6 +39,7 @@ export abstract class BaseGame implements Game {
     abstract handlePlayerAction(playerId: string, action: PlayerAction): void;
     abstract getGameState(): any;
     abstract endGame(): void;
+    abstract getGameStateForPlayer(playerId: string): any;
 
     getAllPlayers(): PublicPlayer[] {
         return Object.values(this.players).map((player) =>

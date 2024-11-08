@@ -24,7 +24,7 @@ const defaultGameState: SpadesGameState = {
     bids: {},
     currentTrick: [],
     tricksWon: {},
-}
+};
 
 export class SpadesGame extends BaseGame {
     teams: { [teamId: string]: Player[] };
@@ -35,7 +35,7 @@ export class SpadesGame extends BaseGame {
         super(room); // Initialize BaseGame
         this.teams = { 1: [], 2: [] };
         this.deck = new Deck();
-        this.gameState = defaultGameState
+        this.gameState = defaultGameState;
     }
 
     startGame(): void {
@@ -79,6 +79,35 @@ export class SpadesGame extends BaseGame {
         this.gameState = defaultGameState;
         // Optionally, notify players
         this.broadcastToAllPlayers("GAME_ENDED", { gameId: this.gameId });
+    }
+
+    getGameStateForPlayer(playerId: string): any {
+        const spadesData = this.players[playerId].gameData[
+            "spades"
+        ] as SpadesGameData;
+
+        // Public information
+        const gameStateForPlayer = {
+            state: this.gameState.state,
+            currentTurnIndex: this.gameState.currentTurnIndex,
+            scores: this.gameState.scores,
+            // bids: this.getPublicBids(),
+            bids: this.gameState?.bids,
+            tricksWon: this.gameState.tricksWon,
+            currentTrick: this.gameState.currentTrick.map(
+                ({ playerId, card }, index) => ({
+                    playerId,
+                    // Reveal cards that have been played
+                    card:
+                        index < this.gameState.currentTrick.length
+                            ? card
+                            : null,
+                })
+            ),
+            hand: spadesData.hand, // Player's own hand
+        };
+
+        return gameStateForPlayer;
     }
 
     private assignTeams(): void {
@@ -215,19 +244,6 @@ export class SpadesGame extends BaseGame {
     //     }
     //     return handsForPlayers;
     // }
-
-    getGameStateForPlayer(playerId: string) {
-        const spadesData = this.players[playerId].gameData[
-            "spades"
-        ] as SpadesGameData;
-        return {
-            currentTurnIndex: this.gameState?.currentTurnIndex,
-            scores: this.gameState?.scores,
-            bids: this.gameState?.bids,
-            tricksWon: this.gameState?.tricksWon,
-            hand: spadesData.hand,
-        };
-    }
 
     // Method to handle 'PLAY_CARD' events
     private handlePlayCard(playerId: string, card: Card): void {
