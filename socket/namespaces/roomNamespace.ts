@@ -23,7 +23,6 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
             const room = roomManager.createRoom(roomId);
             const newPlayer = new Player(socket.id, playerName, socket);
             room.addPlayer(newPlayer);
-            // room.partyLeaderId = player.id; // Set party leader
             socket.join(roomId);
 
             // Send confirmation
@@ -56,8 +55,7 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
                 const room = roomManager.getRoom(roomId);
 
                 if (room && room.isPartyLeader(playerId)) {
-                    // room.setGameType(gameType);
-                    // room.setGameRules(gameRules);
+                    //TODO: Set game type and rules if needed
                     roomNamespace
                         .to(roomId)
                         .emit("GAME_TYPE_SET", { gameType, gameRules });
@@ -75,11 +73,7 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
         socket.on("SET_TURN_ORDER", ({ roomId, playerId, turnOrder }) => {
             const room = roomManager.getRoom(roomId);
 
-            console.log(roomId);
-            console.log(playerId);
-            console.log(turnOrder);
-            console.log(room);
-            if (room && room.isPartyLeader(playerId)) {
+            if (room?.isPartyLeader(playerId)) {
                 room.setTurnOrder(playerId, turnOrder);
                 roomNamespace.to(roomId).emit("ROOM_STATE_UPDATED", {
                     roomState: room.getRoomState(),
@@ -95,8 +89,8 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
         socket.on("ASSIGN_TEAMS", ({ roomId, playerId, teams }) => {
             const room = roomManager.getRoom(roomId);
 
-            if (room && room.isPartyLeader(playerId)) {
-                // room.setTeams(teams);
+            if (room?.isPartyLeader(playerId)) {
+                //TODO: Set teams if needed
                 roomNamespace.to(roomId).emit("TEAMS_ASSIGNED", { teams });
                 console.log(`Teams assigned in room ${roomId}`);
             } else {
@@ -109,7 +103,7 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
         socket.on("KICK_PLAYER", ({ roomId, playerId, targetPlayerId }) => {
             const room = roomManager.getRoom(roomId);
 
-            if (room && room.isPartyLeader(playerId)) {
+            if (room?.isPartyLeader(playerId)) {
                 room.removePlayer(targetPlayerId);
                 roomNamespace
                     .to(roomId)
@@ -127,7 +121,7 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
         socket.on("PROMOTE_LEADER", ({ roomId, playerId, newLeaderId }) => {
             const room = roomManager.getRoom(roomId);
 
-            if (room && room.isPartyLeader(playerId)) {
+            if (room?.isPartyLeader(playerId)) {
                 room.partyLeaderId = newLeaderId;
                 roomNamespace
                     .to(roomId)
