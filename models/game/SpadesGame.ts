@@ -9,25 +9,29 @@ import { Deck } from "./Deck";
 import { GameState, PlayerAction } from "./SpadesGameEnums";
 
 interface SpadesGameState {
-    state: string;
+    phase: GameState.BIDDING | GameState.TRICK_TAKING | GameState.GAME_OVER;
     currentTurnIndex: number;
     scores: { [teamId: string]: number };
     bids: { [playerId: string]: number | null };
     currentTrick: { playerId: string; card: Card }[];
     tricksWon: { [playerId: string]: number };
+    tricksPlayed: number; // Add this line
+    spadesBroken: boolean;
 }
 
 const defaultGameState: SpadesGameState = {
-    state: GameState.BIDDING,
+    phase: GameState.BIDDING,
     currentTurnIndex: 0,
     scores: { 1: 0, 2: 0 },
     bids: {},
     currentTrick: [],
     tricksWon: {},
+    tricksPlayed: 0,
+    spadesBroken: false,
 };
 
 export class SpadesGame extends BaseGame {
-    teams: { [teamId: string]: Player[] };
+    teams: { [teamId: string]: string[] };
     deck: Deck;
     gameState: SpadesGameState;
 
@@ -35,6 +39,7 @@ export class SpadesGame extends BaseGame {
         super(room); // Initialize BaseGame
         this.teams = { 1: [], 2: [] };
         this.deck = new Deck();
+        // this.deck.shuffle();
         this.gameState = defaultGameState;
     }
 
@@ -48,16 +53,11 @@ export class SpadesGame extends BaseGame {
         this.initializeSpadesPlayers();
         this.assignTeams();
         this.initializeGameState();
-        // this.initializeDeck();
-        // this.dealCards();
-
-        // Send initial game state to all players
-        // this.sendInitialGameState();
     }
 
     handlePlayerAction(playerId: string, action: any): void {
         switch (action.type) {
-            case PlayerAction.MAKE_BID:
+            case PlayerAction.PLACE_BID:
                 this.makeBid(playerId, action.bid);
                 break;
             case PlayerAction.PLAY_CARD:
@@ -77,8 +77,19 @@ export class SpadesGame extends BaseGame {
 
     endGame(): void {
         this.gameState = defaultGameState;
+        this.gameState.phase = GameState.GAME_OVER;
         // Optionally, notify players
         this.broadcastToAllPlayers("GAME_ENDED", { gameId: this.gameId });
+    }
+
+    getInitialGameState() {
+        const playersInOrder = this.turnOrder.map((id) =>
+            this.players[id].toPublicObject()
+        );
+        return {
+            teams: this.teams,
+            players: playersInOrder,
+        };
     }
 
     getGameStateForPlayer(playerId: string): any {
@@ -88,8 +99,10 @@ export class SpadesGame extends BaseGame {
 
         // Public information
         const gameStateForPlayer = {
-            state: this.gameState.state,
+            phase: this.gameState.phase,
             currentTurnIndex: this.gameState.currentTurnIndex,
+            currentTurnPlayerId:
+                this.turnOrder[this.gameState.currentTurnIndex],
             scores: this.gameState.scores,
             // bids: this.getPublicBids(),
             bids: this.gameState?.bids,
@@ -116,7 +129,7 @@ export class SpadesGame extends BaseGame {
         for (let i = 0; i < this.turnOrder.length; i++) {
             const playerId = this.turnOrder[i];
             // console.log(`Player ${playerId} assigned to team ${i % 2 + 1}`);
-            this.teams[(i % 2) + 1].push(this.players[playerId]);
+            this.teams[(i % 2) + 1].push(playerId);
         }
         this.gameState.scores[1] = 0;
         this.gameState.scores[2] = 0;
@@ -180,6 +193,7 @@ export class SpadesGame extends BaseGame {
     private startTrickTakingPhase(): void {
         // Set currentTurnIndex to the player who has the 2 of clubs
         this.gameState.currentTurnIndex = this.determineFirstPlayer();
+        this.gameState.phase = GameState.TRICK_TAKING;
 
         // Notify all players that the trick-taking phase has started
         this.broadcastToAllPlayers("TRICK_TAKING_STARTED", {
@@ -201,12 +215,14 @@ export class SpadesGame extends BaseGame {
         }
 
         this.gameState = {
-            state: GameState.BIDDING,
+            phase: GameState.BIDDING,
             currentTurnIndex: 0,
             scores: { 1: 0, 2: 0 },
             bids: bids,
             currentTrick: [],
             tricksWon: tricksWon,
+            tricksPlayed: 0, // Initialize to 0
+            spadesBroken: false,
         };
     }
 
@@ -223,27 +239,6 @@ export class SpadesGame extends BaseGame {
             this.players[playerId].gameData["spades"] = spadesData;
         }
     }
-
-    // private sendInitialGameState(): void {
-    //     for (const player of this.players) {
-    //         const playerHand = this.hands[player.id];
-    //         player.socket.emit("GAME_STARTED", {
-    //             gameState: {
-    //                 ...this.gameState,
-    //                 hand: playerHand,
-    //             },
-    //         });
-    //     }
-    // }
-
-    // getHandsForPlayers() {
-    //     // Return hands with only the cards visible to each player
-    //     const handsForPlayers: { [playerId: string]: Card[] } = {};
-    //     for (const player of this.players) {
-    //         handsForPlayers[player.id] = this.hands[player.id];
-    //     }
-    //     return handsForPlayers;
-    // }
 
     // Method to handle 'PLAY_CARD' events
     private handlePlayCard(playerId: string, card: Card): void {
@@ -264,8 +259,17 @@ export class SpadesGame extends BaseGame {
             throw new Error("You don't have that card.");
         }
 
+        // Validate that the card can be played
+        this.validateCardPlay(playerId, card);
+
         // Remove the card from the player's hand
         playerHand.splice(cardIndex, 1);
+
+        // Update spadesBroken flag if a spade is played
+        if (card.suit === "Spades" && !this.gameState.spadesBroken) {
+            this.gameState.spadesBroken = true;
+            this.broadcastToAllPlayers("SPADES_BROKEN", {});
+        }
 
         // Add the card to the current trick
         this.gameState.currentTrick.push({ playerId, card });
@@ -282,6 +286,38 @@ export class SpadesGame extends BaseGame {
         // If the trick is complete, determine the winner
         if (this.gameState.currentTrick.length === 4) {
             this.completeTrick();
+        }
+    }
+
+    private validateCardPlay(playerId: string, card: Card): void {
+        const currentTrick = this.gameState.currentTrick;
+        const spadesData = this.players[playerId].gameData[
+            "spades"
+        ] as SpadesGameData;
+        const playerHand = spadesData.hand;
+
+        if (currentTrick.length === 0) {
+            // Player is leading the trick
+            if (card.suit === "Spades" && !this.gameState.spadesBroken) {
+                // Check if player has only spades left
+                const hasOnlySpades = playerHand.every(
+                    (c) => c.suit === "Spades"
+                );
+                if (!hasOnlySpades) {
+                    throw new Error(
+                        "Cannot lead with spades until they have been broken."
+                    );
+                }
+            }
+        } else {
+            // Player must follow suit if possible
+            const leadSuit = currentTrick[0].card.suit;
+            if (card.suit !== leadSuit) {
+                const hasLeadSuit = playerHand.some((c) => c.suit === leadSuit);
+                if (hasLeadSuit) {
+                    throw new Error(`You must follow suit: ${leadSuit}.`);
+                }
+            }
         }
     }
 
@@ -321,6 +357,7 @@ export class SpadesGame extends BaseGame {
 
         // Update tricks won
         this.gameState.tricksWon[winningPlayerId] += 1;
+        this.gameState.tricksPlayed += 1;
 
         // Set the next turn to the winner of the trick
         this.gameState.currentTurnIndex =
@@ -329,10 +366,34 @@ export class SpadesGame extends BaseGame {
         // Clear the current trick
         this.gameState.currentTrick = [];
 
-        this.broadcastToAllPlayers("TRICK_COMPLETED", {
-            winningPlayerId,
-            currentTurnIndex: this.gameState.currentTurnIndex,
-        });
+        if (this.gameState.tricksPlayed === 13) {
+            this.calculateScores();
+
+            // Optionally, check if the game should end
+            const winningScore = 500; // You can adjust this value
+            const gameOver = Object.values(this.gameState.scores).some(
+                (score) => score >= winningScore
+            );
+
+            if (gameOver) {
+                this.gameState.phase = GameState.GAME_OVER;
+                this.broadcastToAllPlayers("GAME_OVER", {
+                    scores: this.gameState.scores,
+                });
+                this.endGame();
+            } else {
+                // Start a new round
+                this.startNewRound();
+                this.broadcastToAllPlayers("NEW_ROUND_STARTED", {
+                    currentTurnIndex: this.gameState.currentTurnIndex,
+                });
+            }
+        } else {
+            this.broadcastToAllPlayers("TRICK_COMPLETED", {
+                winningPlayerId,
+                currentTurnIndex: this.gameState.currentTurnIndex,
+            });
+        }
     }
 
     private getCardRank(card: Card): number {
@@ -360,9 +421,7 @@ export class SpadesGame extends BaseGame {
         const teamBids: { [teamId: string]: number } = { 1: 0, 2: 0 };
 
         for (const teamId in this.teams) {
-            const players = this.teams[teamId];
-            for (const player of players) {
-                const playerId = player.id;
+            for (const playerId of this.teams[teamId]) {
                 const tricksWon = this.gameState.tricksWon[playerId];
                 const bid = this.gameState.bids[playerId]!;
                 teamTricksWon[teamId] += tricksWon;
@@ -378,7 +437,7 @@ export class SpadesGame extends BaseGame {
             if (tricksWon >= bid) {
                 this.gameState.scores[teamId] += bid * 10;
                 // Optionally, add one point per overtrick (bags)
-                // this.gameState.scores[teamId] += (tricksWon - bid);
+                this.gameState.scores[teamId] += tricksWon - bid;
             } else {
                 this.gameState.scores[teamId] -= bid * 10;
             }
