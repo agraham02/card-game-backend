@@ -1,6 +1,9 @@
 import { BaseGame } from "./Game";
 
 export class Dominoes extends BaseGame {
+    getInitialGameState() {
+        throw new Error("Method not implemented.");
+    }
     startGame(): void {
         throw new Error("Method not implemented.");
     }

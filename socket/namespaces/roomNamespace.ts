@@ -161,15 +161,6 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
                         io
                     );
 
-                    // Send initial game state to each player
-                    Object.values(room.players).forEach((player) => {
-                        const gameState =
-                            room.gameInstance?.getGameStateForPlayer(player.id);
-                        room.broadcastToPlayer(player.id, "GAME_STATE_UPDATE", {
-                            gameState,
-                        });
-                    });
-
                     console.log(`Game started in room ${roomId}`);
                 }
             } catch (error: any) {
@@ -177,6 +168,21 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
                 socket.emit("ERROR", {
                     message: "Failed to start the game.",
                     error: error.message,
+                });
+            }
+        });
+
+        socket.on("LOADED_GAME_PAGE", ({ roomId, playerId }) => {
+            const room = roomManager.getRoom(roomId);
+            if (room) {
+                const initialGameState =
+                    room.gameInstance?.getInitialGameState();
+                const gameState =
+                    room.gameInstance?.getGameStateForPlayer(playerId);
+                
+                room.broadcastToPlayer(playerId, "GAME_STATE_UPDATE", {
+                    staticGameState: initialGameState,
+                    gameState,
                 });
             }
         });

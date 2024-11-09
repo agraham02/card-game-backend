@@ -7,7 +7,7 @@ export enum GameState {
 }
 
 export enum PlayerAction {
-    MAKE_BID = "MAKE_BID",
+    PLACE_BID = "PLACE_BID",
     PLAY_CARD = "PLAY_CARD",
     PASS_TURN = "PASS_TURN", // Example of other potential actions
 }
