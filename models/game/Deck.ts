@@ -44,10 +44,10 @@ export class Deck {
 
     sortHand(hand: Card[]): Card[] {
         const suitOrder: Record<Card["suit"], number> = {
-            Spades: 4,
-            Hearts: 3,
-            Clubs: 2,
-            Diamonds: 1,
+            Spades: 1,
+            Hearts: 2,
+            Clubs: 3,
+            Diamonds: 4,
         };
 
         const valueOrder: Record<Card["value"], number> = {
