@@ -26,8 +26,8 @@ describe("Spades Game Mechanics", () => {
 
     test("should initialize game state and assign teams", () => {
         expect(Object.keys(spadesGame.teams)).toHaveLength(2);
-        expect(spadesGame.teams[1]).toContain(players[0]);
-        expect(spadesGame.teams[1]).toContain(players[2]);
+        expect(spadesGame.teams[1]).toContain(players[0].id);
+        expect(spadesGame.teams[1]).toContain(players[2].id);
     });
 
     test("should handle bidding correctly", () => {
@@ -98,10 +98,10 @@ describe("SpadesGame - startGame", () => {
 
         // Check that teams are assigned
         expect(Object.keys(spadesGame.teams)).toHaveLength(2);
-        expect(spadesGame.teams[1]).toContain(players[0]);
-        expect(spadesGame.teams[1]).toContain(players[2]);
-        expect(spadesGame.teams[2]).toContain(players[1]);
-        expect(spadesGame.teams[2]).toContain(players[3]);
+        expect(spadesGame.teams[1]).toContain(players[0].id);
+        expect(spadesGame.teams[1]).toContain(players[2].id);
+        expect(spadesGame.teams[2]).toContain(players[1].id);
+        expect(spadesGame.teams[2]).toContain(players[3].id);
 
         // Check that the deck has been created and shuffled
         expect(spadesGame.deck.getSize()).toBe(0); // Deck should be empty after dealing
