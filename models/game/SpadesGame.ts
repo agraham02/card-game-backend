@@ -416,6 +416,7 @@ export class SpadesGame extends BaseGame {
     }
 
     calculateScores(): void {
+        // TODO: ensure scores are calculated corectly
         // Sum up bids and tricks won for each team
         const teamTricksWon: { [teamId: string]: number } = { 1: 0, 2: 0 };
         const teamBids: { [teamId: string]: number } = { 1: 0, 2: 0 };
