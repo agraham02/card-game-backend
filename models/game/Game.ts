@@ -9,7 +9,7 @@ export interface Game {
     gameState: any;
 
     startGame(): void;
-    handlePlayerAction(playerId: string, action: any): void;
+    handlePlayerAction(playerId: string, action: any): Promise<void>;
     getGameState(): any;
     endGame(): void;
     getInitialGameState(): any;
@@ -37,7 +37,10 @@ export abstract class BaseGame implements Game {
     }
 
     abstract startGame(): void;
-    abstract handlePlayerAction(playerId: string, action: PlayerAction): void;
+    abstract handlePlayerAction(
+        playerId: string,
+        action: any
+    ): Promise<void>;
     abstract getGameState(): any;
     abstract endGame(): void;
     abstract getInitialGameState(): any;

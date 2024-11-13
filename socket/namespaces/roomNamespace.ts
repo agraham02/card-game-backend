@@ -5,6 +5,7 @@ import {
     requireEnoughPlayers,
     requirePartyLeader,
 } from "../../middleware/validationMiddleware";
+import { emitError } from "../../utils/emitError";
 
 export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
     io.on("connection", (socket: Socket) => {
@@ -14,7 +15,10 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
                 roomName || Math.random().toString(36).substring(2, 10);
 
             if (roomManager.getRoom(roomId)) {
-                socket.emit("ERROR", { message: "Room already exists" });
+                emitError(socket, {
+                    title: "Room Creation Error",
+                    description: "Room already exists",
+                });
                 return;
             }
 
@@ -55,7 +59,7 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
             ({ roomId, playerId, gameType, gameRules }) => {
                 const room = roomManager.getRoom(roomId);
 
-                if (room && room.isPartyLeader(playerId)) {
+                if (room?.isPartyLeader(playerId)) {
                     //TODO: Set game type and rules if needed
                     // Broadcast game type to all players
                     room.broadcastToAll(
@@ -67,8 +71,10 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
                         `Game type set to ${gameType} in room ${roomId}`
                     );
                 } else {
-                    socket.emit("ERROR", {
-                        message: "Only the party leader can set the game type",
+                    emitError(socket, {
+                        title: "Game Type Error",
+                        description:
+                            "Only the party leader can set the game type",
                     });
                 }
             }
@@ -86,24 +92,26 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
                 );
                 console.log(`Turn order set in room ${roomId}`);
             } else {
-                socket.emit("ERROR", {
-                    message: "Only the party leader can set the turn order",
+                emitError(socket, {
+                    title: "Turn Order Error",
+                    description: "Only the party leader can set the turn order",
                 });
             }
         });
 
-        socket.on("ASSIGN_TEAMS", ({ roomId, playerId, teams }) => {
-            const room = roomManager.getRoom(roomId);
+        // socket.on("ASSIGN_TEAMS", ({ roomId, playerId, teams }) => {
+        //     const room = roomManager.getRoom(roomId);
 
-            if (room?.isPartyLeader(playerId)) {
-                room.broadcastToAll("TEAMS_ASSIGNED", { teams }, io);
-                console.log(`Teams assigned in room ${roomId}`);
-            } else {
-                socket.emit("ERROR", {
-                    message: "Only the party leader can assign teams",
-                });
-            }
-        });
+        //     if (room?.isPartyLeader(playerId)) {
+        //         room.broadcastToAll("TEAMS_ASSIGNED", { teams }, io);
+        //         console.log(`Teams assigned in room ${roomId}`);
+        //     } else {
+        //         emitError(socket, {
+        //             title: "Team Assignment Error",
+        //             description: "Only the party leader can assign teams",
+        //         });
+        //     }
+        // });
 
         socket.on("KICK_PLAYER", ({ roomId, playerId, targetPlayerId }) => {
             const room = roomManager.getRoom(roomId);
@@ -119,8 +127,9 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
                     `Player ${targetPlayerId} kicked from room ${roomId}`
                 );
             } else {
-                socket.emit("ERROR", {
-                    message: "Only the party leader can kick players",
+                emitError(socket, {
+                    title: "Kick Player Error",
+                    description: "Only the party leader can kick players",
                 });
             }
         });
@@ -139,8 +148,9 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
                     `Party leader changed to ${newLeaderId} in room ${roomId}`
                 );
             } else {
-                socket.emit("ERROR", {
-                    message:
+                emitError(socket, {
+                    title: "Promotion Error",
+                    description:
                         "Only the current party leader can promote a new leader",
                 });
             }
@@ -165,9 +175,9 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
                 }
             } catch (error: any) {
                 console.error("Error starting game:", error);
-                socket.emit("ERROR", {
-                    message: "Failed to start the game.",
-                    error: error.message,
+                emitError(socket, {
+                    title: "Game Start Error",
+                    description: "Failed to start the game: " + error.message,
                 });
             }
         });
@@ -179,7 +189,7 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
                     room.gameInstance?.getInitialGameState();
                 const gameState =
                     room.gameInstance?.getGameStateForPlayer(playerId);
-                
+
                 room.broadcastToPlayer(playerId, "GAME_STATE_UPDATE", {
                     staticGameState: initialGameState,
                     gameState,
@@ -188,13 +198,16 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
         });
 
         // **New PLAYER_ACTION listener within the same namespace**
-        socket.on("PLAYER_ACTION", ({ roomId, playerId, action }) => {
+        socket.on("PLAYER_ACTION", async ({ roomId, playerId, action }) => {
             const room = roomManager.getRoom(roomId);
 
             if (room?.gameInstance) {
                 try {
                     // Handle the player's action
-                    room.gameInstance.handlePlayerAction(playerId, action);
+                    await room.gameInstance.handlePlayerAction(
+                        playerId,
+                        action
+                    );
 
                     // Send updated game state to each player
                     Object.values(room.players).forEach((player) => {
@@ -206,14 +219,15 @@ export const setupRoomNamespace = (io: Server, roomManager: RoomManager) => {
                     });
                 } catch (error: any) {
                     console.error("Error handling player action:", error);
-                    socket.emit("ERROR", {
-                        message: "Invalid action.",
-                        error: error.message,
+                    emitError(socket, {
+                        title: "Player Action Error",
+                        description: "Invalid action.",
                     });
                 }
             } else {
-                socket.emit("ERROR", {
-                    message: "Game not found or not started.",
+                emitError(socket, {
+                    title: "Game Instance Error",
+                    description: "Game not found or not started.",
                 });
             }
         });
