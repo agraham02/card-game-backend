@@ -8,11 +8,24 @@ import morgan from "morgan";
 import { setupRoomNamespace } from "./socket/namespaces/roomNamespace";
 import { RoomManager } from "./models/room/RoomManager";
 
+const allowedOrigins = [
+    "http://localhost:3000",
+    "https://card-game-frontend-five.vercel.app/",
+    "https://card-game-frontend-ahmadgrahamdevgmailcoms-projects.vercel.app/",
+];
+
 const app = express();
 app.use(morgan("dev"));
 app.use(
     cors({
-        origin: "https://card-game-frontend-five.vercel.app/", // Replace with your Vercel URL
+        origin: (origin, callback) => {
+            // Allow requests with no origin (like mobile apps, or Postman)
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error("Not allowed by CORS"));
+            }
+        },
         methods: ["GET", "POST"],
         credentials: true,
     })
@@ -21,7 +34,13 @@ app.use(
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "https://card-game-frontend-five.vercel.app/",
+        origin: (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error("Not allowed by CORS"));
+            }
+        },
         methods: ["GET", "POST"],
         credentials: true,
     },
