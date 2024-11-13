@@ -1,7 +1,6 @@
 // Basic implementation of the Spades AI player using Minimax
-import { Card } from "./Card"; // Assume a Card class with `suit` and `value` properties
-import { SpadesGame } from "./SpadesGame";
-import { Player } from "../player/Player";
+import { Card } from "../models/game/Card"; // Assume a Card class with `suit` and `value` properties
+import { SpadesGame } from "../models/game/SpadesGame";
 
 export class SpadesAI {
     game: SpadesGame;
@@ -49,13 +48,14 @@ export class SpadesAI {
      * @param isMaximizingPlayer - True if AI is maximizing its score.
      */
     minimax(depth: number, isMaximizingPlayer: boolean): number {
-        if (depth === 0 || this.game.isGameOver()) {
-            return this.evaluateGameState();
-        }
+        // if (depth === 0 || this.game.isGameOver()) {
+        //     return this.evaluateGameState();
+        // }
 
-        const currentPlayer = isMaximizingPlayer
-            ? this.playerId
-            : this.game.getOpponentPlayer(this.playerId);
+        // const currentPlayer = isMaximizingPlayer
+        //     ? this.playerId
+        //     : this.game.getOpponentPlayer(this.playerId);
+        const currentPlayer = this.playerId;
         const hand = this.game.players[currentPlayer].gameData["spades"]
             .hand as Card[];
         let bestScore = isMaximizingPlayer ? -Infinity : Infinity;

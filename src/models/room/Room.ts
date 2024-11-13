@@ -1,7 +1,6 @@
 import { Server } from "socket.io";
 import { Game } from "../game/Game";
 import { GameFactory } from "../game/GameFactory";
-import { SpadesGame } from "../game/SpadesGame";
 import { Player, PublicPlayer } from "../player/Player";
 
 export class Room {
